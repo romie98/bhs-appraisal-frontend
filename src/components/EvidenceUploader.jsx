@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FileText, Calendar, Upload, CheckCircle, X, Loader } from 'lucide-react'
 import EvidenceCheckboxList from './EvidenceCheckboxList'
-import { ensurePortfolioFolder, uploadToDrive } from '../services/googleDriveService'
+// Google Drive integration removed - all uploads go to backend storage
 import { saveEvidenceToStore } from '../utils/evidenceStore'
 
 function EvidenceUploader({ schema, onSave }) {
@@ -102,15 +102,14 @@ function EvidenceUploader({ schema, onSave }) {
     setIsUploading(true)
 
     try {
-      let driveResult = null
       let fileName = ''
 
-      if (!useLocalPath) {
-        // Upload to Google Drive
-        const folderId = await ensurePortfolioFolder()
-        const file = files[0] // For now, handle single file
-        driveResult = await uploadToDrive(file, folderId)
-        fileName = file.name
+      if (!useLocalPath && files && files.length > 0) {
+        // Upload to backend storage (handled by backend API)
+        // For now, just use the file name
+        fileName = files[0].name
+        // TODO: Upload file to backend API endpoint
+        // The backend will handle file storage
       } else {
         // Use local path
         fileName = localPath.split('/').pop() || localPath.split('\\').pop() || 'Local File'
@@ -124,9 +123,6 @@ function EvidenceUploader({ schema, onSave }) {
         title: title,
         selectedEvidence: selectedEvidence,
         fileName: fileName,
-        driveFileId: driveResult?.id || null,
-        driveViewLink: driveResult?.webViewLink || null,
-        driveDownloadLink: driveResult?.downloadLink || null,
         localPath: useLocalPath ? localPath : null,
         notes: notes,
         dateAdded: date,

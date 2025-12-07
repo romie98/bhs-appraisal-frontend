@@ -1,7 +1,6 @@
 import { Menu, LogOut, User } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import GoogleLogin from './GoogleLogin'
 
 function Header({ onMenuClick, pageTitle }) {
   const { isAuthenticated, user, logout } = useAuth()
@@ -63,8 +62,6 @@ function Header({ onMenuClick, pageTitle }) {
               </Link>
             </div>
           )}
-          {/* Keep GoogleLogin for Google Drive integration */}
-          <GoogleLogin />
         </div>
       </div>
     </header>

@@ -81,23 +81,11 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     setShowDeleteConfirm(false)
   }
 
-  // Extract driveFileId from driveViewLink if not directly available
-  const getDriveFileId = () => {
-    if (evidence.driveFileId) {
-      return evidence.driveFileId
-    }
-    if (evidence.driveViewLink) {
-      const match = evidence.driveViewLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
-      return match ? match[1] : null
-    }
-    return null
-  }
-
+  // Google Drive integration removed - files are stored in backend
   // Render inline preview for accordion view
   const renderInlinePreview = () => {
     const fileName = evidence.fileName || ''
-    const downloadLink = evidence.driveDownloadLink || evidence.driveViewLink
-    const driveFileId = getDriveFileId()
+    const downloadLink = evidence.file_url || evidence.localPath
 
     // IMAGE inline preview
     if (isImage(fileName)) {
@@ -122,19 +110,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       }
     }
 
-    // PDF or Drive Files
-    if (driveFileId) {
-      return (
-        <iframe
-          src={`https://drive.google.com/file/d/${driveFileId}/preview`}
-          className="w-full rounded-xl border-0"
-          style={{ height: '80vh', minHeight: '600px' }}
-          title={`Preview of ${evidence.title || fileName}`}
-        />
-      )
-    }
-
-    // Local PDF
+    // PDF Files (stored in backend)
     if (evidence.localPath && /\.(pdf)$/i.test(evidence.localPath)) {
       let localUrl = evidence.localPath
       
@@ -161,23 +137,10 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
 
   // Get preview element based on file type
   const getPreviewElement = () => {
-    const driveFileId = getDriveFileId()
     const fileName = evidence.fileName || ''
-    const downloadLink = evidence.driveDownloadLink || evidence.driveViewLink
+    const downloadLink = evidence.file_url || evidence.localPath
 
-    // If Drive Preview
-    if (driveFileId) {
-      return (
-        <iframe
-          src={`https://drive.google.com/file/d/${driveFileId}/preview`}
-          className="w-full h-[85vh] rounded-xl border-0"
-          allow="autoplay"
-          title={`Preview of ${evidence.title || fileName}`}
-        />
-      )
-    }
-
-    // If localPath is PDF or document
+    // If file is PDF or document (stored in backend)
     if (evidence.localPath && /\.(pdf)$/i.test(evidence.localPath)) {
       // Transform local path to URL
       let localUrl = evidence.localPath
@@ -340,7 +303,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-        {(evidence.driveViewLink || evidence.driveFileId || evidence.localPath || evidence.driveDownloadLink) && (
+        {(evidence.file_url || evidence.localPath) && (
           <button
             onClick={() => setOpen(true)}
             className="bg-sky-600 text-white px-3 py-1 rounded-md text-sm hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
@@ -348,9 +311,9 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
             View
           </button>
         )}
-        {evidence.driveViewLink && (
+        {(evidence.file_url || evidence.localPath) && (
           <a
-            href={evidence.driveViewLink}
+            href={evidence.file_url || evidence.localPath}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-2 py-1"
@@ -359,11 +322,10 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
             Open
           </a>
         )}
-        {evidence.driveDownloadLink && (
+        {(evidence.file_url || evidence.localPath) && (
           <a
-            href={evidence.driveDownloadLink}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={evidence.file_url || evidence.localPath}
+            download
             className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
           >
             <Download className="w-3 h-3" />
@@ -469,11 +431,10 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {evidence.driveDownloadLink && (
+                {(evidence.file_url || evidence.localPath) && (
                   <a
-                    href={evidence.driveDownloadLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={evidence.file_url || evidence.localPath}
+                    download
                     className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-3 py-1"
                   >
                     <Download className="w-4 h-4" />

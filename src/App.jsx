@@ -31,6 +31,7 @@ function App() {
   return (
     <Routes>
       {/* Public pages without GlobalLayout */}
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       
@@ -38,7 +39,6 @@ function App() {
       <Route path="/*" element={
         <GlobalLayout>
           <Routes>
-            <Route path="/" element={<Home />} />
             <Route path="/gp1" element={<GP1 />} />
             <Route path="/gp2" element={<GP2 />} />
             <Route path="/gp3" element={<GP3 />} />

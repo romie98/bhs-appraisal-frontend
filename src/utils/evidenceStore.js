@@ -30,7 +30,7 @@ export async function saveEvidence(item) {
   try {
     // Add example local path if item comes from that source
     // This is a placeholder - in real implementation, you'd check the source
-    if (!item.localPath && !item.driveFileId) {
+    if (!item.localPath) {
       // If no file source specified, use example path
       item.localPath = EXAMPLE_LOCAL_PATH
     }
@@ -106,7 +106,7 @@ export function loadEvidenceStore() {
 export function saveEvidenceToStore(metadata) {
   try {
     // Add example local path if no file source specified
-    if (!metadata.localPath && !metadata.driveFileId) {
+    if (!metadata.localPath) {
       metadata.localPath = EXAMPLE_LOCAL_PATH
     }
 
