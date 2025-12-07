@@ -1,52 +1,20 @@
 // Service for managing local evidence store
-// Uses Node fs in development (Cursor), localStorage in browser
-// Includes example local file path for evidence from that source
+// Uses localStorage in browser
 
-const PATH = './src/data/localEvidenceStore.json'
 const STORAGE_KEY = 'localEvidenceStore'
 const EXAMPLE_LOCAL_PATH = '/mnt/data/Beginning Teachers Appraisal (Mar. 31, 2020).pdf'
 
-// Check if we're in Node.js environment
-const isNode = typeof window === 'undefined' && typeof process !== 'undefined' && typeof require !== 'undefined'
-
-// Lazy load fs and path only in Node environment
-let fs, path
-if (isNode) {
-  try {
-    fs = require('fs')
-    path = require('path')
-  } catch (e) {
-    // fs not available
-  }
-}
-
 /**
- * Load evidence from file (Node) or localStorage (browser)
+ * Load evidence from localStorage
  * @returns {Promise<Array>} - Array of evidence metadata
  */
 export async function loadEvidence() {
   try {
-    if (isNode) {
-      // Node.js environment - use fs
-      try {
-        const filePath = path.resolve(PATH)
-        if (fs.existsSync(filePath)) {
-          const fileContent = fs.readFileSync(filePath, 'utf-8')
-          return JSON.parse(fileContent)
-        }
-        return []
-      } catch (error) {
-        console.error('Error reading evidence file:', error)
-        return []
-      }
-    } else {
-      // Browser environment - use localStorage
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        return JSON.parse(stored)
-      }
-      return []
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
     }
+    return []
   } catch (error) {
     console.error('Error loading evidence:', error)
     return []
@@ -70,16 +38,10 @@ export async function saveEvidence(item) {
     const store = await loadEvidence()
     store.push(item)
 
-    if (isNode) {
-      // Node.js environment - write to file
-      const filePath = path.resolve(PATH)
-      fs.writeFileSync(filePath, JSON.stringify(store, null, 2), 'utf-8')
-    } else {
-      // Browser environment - save to localStorage
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store, null, 2))
-      // Dispatch custom event for UI updates
-      window.dispatchEvent(new CustomEvent('evidenceStoreUpdated', { detail: store }))
-    }
+    // Browser environment - save to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store, null, 2))
+    // Dispatch custom event for UI updates
+    window.dispatchEvent(new CustomEvent('evidenceStoreUpdated', { detail: store }))
 
     return store
   } catch (error) {
@@ -130,25 +92,11 @@ export async function getEvidenceByGPAndSubsection(gp, subsection) {
 // Synchronous versions for backward compatibility (use localStorage in browser)
 export function loadEvidenceStore() {
   try {
-    if (isNode) {
-      try {
-        const filePath = path.resolve(PATH)
-        if (fs.existsSync(filePath)) {
-          const fileContent = fs.readFileSync(filePath, 'utf-8')
-          return JSON.parse(fileContent)
-        }
-        return []
-      } catch (error) {
-        console.error('Error reading evidence file:', error)
-        return []
-      }
-    } else {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        return JSON.parse(stored)
-      }
-      return []
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
     }
+    return []
   } catch (error) {
     console.error('Error loading evidence store:', error)
     return []
@@ -165,13 +113,8 @@ export function saveEvidenceToStore(metadata) {
     const store = loadEvidenceStore()
     store.push(metadata)
 
-    if (isNode) {
-      const filePath = path.resolve(PATH)
-      fs.writeFileSync(filePath, JSON.stringify(store, null, 2), 'utf-8')
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store, null, 2))
-      window.dispatchEvent(new CustomEvent('evidenceStoreUpdated', { detail: store }))
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store, null, 2))
+    window.dispatchEvent(new CustomEvent('evidenceStoreUpdated', { detail: store }))
 
     return store
   } catch (error) {
