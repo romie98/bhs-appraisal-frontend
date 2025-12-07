@@ -40,12 +40,24 @@ function MarkBook() {
   const { data: students = [], isLoading: studentsLoading, error: studentsError } = useQuery({
     queryKey: ['class-students', selectedClassId],
     queryFn: async () => {
-      console.log('Fetching students for class:', selectedClassId)
-      const result = await classesApi.getStudents(selectedClassId)
-      console.log('Students fetched:', result)
-      return result
+      if (!selectedClassId) return []
+      try {
+        if (import.meta.env.DEV) {
+          console.log('Fetching students for class:', selectedClassId)
+        }
+        const result = await classesApi.getStudents(selectedClassId)
+        if (import.meta.env.DEV) {
+          console.log('Students fetched:', result)
+        }
+        return result || []
+      } catch (error) {
+        console.error('Error fetching students:', error)
+        return [] // Return empty array on error to prevent hanging
+      }
     },
     enabled: !!selectedClassId,
+    retry: 1, // Only retry once
+    staleTime: 30000, // Consider data fresh for 30 seconds
   })
 
   // Log errors for debugging (only in development)
@@ -63,11 +75,28 @@ function MarkBook() {
   }, [selectedClassId, students.length])
 
   // Fetch assessments for selected class
-  const { data: assessments = [], isLoading: assessmentsLoading } = useQuery({
+  const { data: assessments = [], isLoading: assessmentsLoading, error: assessmentsError } = useQuery({
     queryKey: ['assessments', selectedClassId],
-    queryFn: () => assessmentsApi.getAll(null, selectedClassId),
+    queryFn: async () => {
+      if (!selectedClassId) return []
+      try {
+        return await assessmentsApi.getAll(null, selectedClassId) || []
+      } catch (error) {
+        console.error('Error fetching assessments:', error)
+        return [] // Return empty array on error to prevent hanging
+      }
+    },
     enabled: !!selectedClassId,
+    retry: 1, // Only retry once
+    staleTime: 30000, // Consider data fresh for 30 seconds
   })
+  
+  // Log errors for debugging
+  useEffect(() => {
+    if (assessmentsError && import.meta.env.DEV) {
+      console.error('Error fetching assessments:', assessmentsError)
+    }
+  }, [assessmentsError])
 
   // Fetch students with scores for selected assessment
   const { data: studentsWithScores = [] } = useQuery({
@@ -80,20 +109,43 @@ function MarkBook() {
 
   // Fetch all scores for the selected class
   // Only fetch when we have assessments and a selected class
-  const { data: allScores = [] } = useQuery({
-    queryKey: ['scores', selectedClassId, assessments.length],
+  // Use assessment IDs in queryKey instead of length to prevent unnecessary refetches
+  const assessmentIds = useMemo(() => 
+    (assessments || []).map(a => a.id).sort().join(','), 
+    [assessments]
+  )
+  
+  const { data: allScores = [], isLoading: scoresLoading, error: scoresError } = useQuery({
+    queryKey: ['scores', selectedClassId, assessmentIds],
     queryFn: async () => {
       if (!selectedClassId || !assessments || assessments.length === 0) {
         return []
       }
-      const scoresPromises = assessments.map(assessment => 
-        scoresApi.getByAssessment(assessment.id, selectedClassId)
-      )
-      const scoresArrays = await Promise.all(scoresPromises)
-      return scoresArrays.flat()
+      try {
+        const scoresPromises = assessments.map(assessment => 
+          scoresApi.getByAssessment(assessment.id, selectedClassId).catch(err => {
+            console.error(`Error fetching scores for assessment ${assessment.id}:`, err)
+            return [] // Return empty array on error to prevent hanging
+          })
+        )
+        const scoresArrays = await Promise.all(scoresPromises)
+        return scoresArrays.flat()
+      } catch (error) {
+        console.error('Error loading scores:', error)
+        return [] // Return empty array on error
+      }
     },
     enabled: !!selectedClassId && assessments.length > 0,
+    retry: 1, // Only retry once
+    staleTime: 30000, // Consider data fresh for 30 seconds
   })
+  
+  // Log errors for debugging
+  useEffect(() => {
+    if (scoresError && import.meta.env.DEV) {
+      console.error('Error fetching scores:', scoresError)
+    }
+  }, [scoresError])
 
   // Filter assessments by type and date
   const filteredAssessments = useMemo(() => {
@@ -182,13 +234,38 @@ function MarkBook() {
   })
 
   // Initialize local scores from allScores
+  // Only update if allScores actually changed (prevent infinite loops)
   useEffect(() => {
+    if (!allScores || allScores.length === 0) {
+      setLocalScores({})
+      return
+    }
+    
     const scores = {}
     allScores.forEach(score => {
-      const key = `${score.student_id}_${score.assessment_id}`
-      scores[key] = score.score
+      if (score && score.student_id && score.assessment_id) {
+        const key = `${score.student_id}_${score.assessment_id}`
+        scores[key] = score.score
+      }
     })
-    setLocalScores(scores)
+    
+    // Only update if scores actually changed
+    setLocalScores(prev => {
+      const prevKeys = Object.keys(prev).sort().join(',')
+      const newKeys = Object.keys(scores).sort().join(',')
+      if (prevKeys === newKeys) {
+        // Check if values changed
+        let valuesChanged = false
+        for (const key in scores) {
+          if (prev[key] !== scores[key]) {
+            valuesChanged = true
+            break
+          }
+        }
+        if (!valuesChanged) return prev
+      }
+      return scores
+    })
   }, [allScores])
 
   const handleScoreChange = (studentId, assessmentId, value, saveImmediately = false) => {
@@ -241,7 +318,7 @@ function MarkBook() {
     }
   }
 
-  const handlePaste = (e, startStudentId, assessmentId) => {
+  const handlePaste = async (e, startStudentId, assessmentId) => {
     e.preventDefault()
     const pastedData = e.clipboardData.getData('text')
     // Don't filter out empty lines - preserve them to handle empty cells
@@ -333,32 +410,41 @@ function MarkBook() {
 
       // Create new scores in bulk
       if (toCreate.length > 0) {
-        scoresApi.createBulk({
-          assessment_id: assessmentId,
-          scores: (toCreate || []).map(({ studentId, score }) => ({
+        try {
+          await scoresApi.createBulk({
             assessment_id: assessmentId,
-            student_id: studentId,
-            score,
-            comment: null
-          }))
-        }).then(() => {
+            scores: (toCreate || []).map(({ studentId, score }) => ({
+              assessment_id: assessmentId,
+              student_id: studentId,
+              score,
+              comment: null
+            }))
+          })
+          // Only invalidate after successful save
           queryClient.invalidateQueries({ queryKey: ['scores', selectedClassId] })
           queryClient.invalidateQueries({ queryKey: ['assessments', selectedClassId] })
-        }).catch(err => {
+        } catch (err) {
           console.error('Error bulk creating scores:', err)
-        })
+          alert('Failed to save some scores. Please try again.')
+        }
       }
 
       // Delete scores for empty cells
       if (scoresToDelete.length > 0) {
-        Promise.all(
-          (scoresToDelete || []).map(scoreId => scoresApi.delete(scoreId))
-        ).then(() => {
+        try {
+          await Promise.all(
+            (scoresToDelete || []).map(scoreId => scoresApi.delete(scoreId).catch(err => {
+              console.error(`Error deleting score ${scoreId}:`, err)
+              return null // Continue even if one fails
+            }))
+          )
+          // Only invalidate after successful deletion
           queryClient.invalidateQueries({ queryKey: ['scores', selectedClassId] })
           queryClient.invalidateQueries({ queryKey: ['assessments', selectedClassId] })
-        }).catch(err => {
+        } catch (err) {
           console.error('Error deleting scores:', err)
-        })
+          alert('Failed to delete some scores. Please try again.')
+        }
       }
     }
   }
@@ -410,7 +496,7 @@ function MarkBook() {
     }
   }
 
-  if (classesLoading || studentsLoading || assessmentsLoading) {
+  if (classesLoading || studentsLoading || assessmentsLoading || scoresLoading) {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
@@ -520,11 +606,16 @@ function MarkBook() {
               onChange={(e) => {
                 const classId = e.target.value || null
                 setSelectedClassId(classId)
-                // Invalidate queries when class changes
+                // Reset assessment selection when class changes
+                setSelectedAssessmentId(null)
+                // Invalidate queries when class changes (but don't cause loops)
                 if (classId) {
-                  queryClient.invalidateQueries({ queryKey: ['class-students', classId] })
-                  queryClient.invalidateQueries({ queryKey: ['assessments', classId] })
-                  queryClient.invalidateQueries({ queryKey: ['scores', classId] })
+                  // Use setTimeout to prevent synchronous invalidation loops
+                  setTimeout(() => {
+                    queryClient.invalidateQueries({ queryKey: ['class-students', classId] })
+                    queryClient.invalidateQueries({ queryKey: ['assessments', classId] })
+                    queryClient.invalidateQueries({ queryKey: ['scores'] })
+                  }, 0)
                 }
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"

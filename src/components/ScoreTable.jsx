@@ -7,16 +7,41 @@ export default function ScoreTable({ students, assessmentId, totalMarks, classId
   const queryClient = useQueryClient()
 
   // Initialize local scores from students data
+  // Only update if students actually changed (prevent infinite loops)
   useEffect(() => {
+    if (!students || students.length === 0) {
+      setLocalScores({})
+      return
+    }
+    
     const scores = {}
     students.forEach(student => {
-      scores[student.student_id] = {
-        score: student.score || '',
-        comment: student.comment || '',
-        scoreId: student.score_id
+      if (student && student.student_id) {
+        scores[student.student_id] = {
+          score: student.score || '',
+          comment: student.comment || '',
+          scoreId: student.score_id
+        }
       }
     })
-    setLocalScores(scores)
+    
+    // Only update if scores actually changed
+    setLocalScores(prev => {
+      const prevKeys = Object.keys(prev).sort().join(',')
+      const newKeys = Object.keys(scores).sort().join(',')
+      if (prevKeys === newKeys) {
+        // Check if values changed
+        let valuesChanged = false
+        for (const key in scores) {
+          if (prev[key]?.score !== scores[key]?.score || prev[key]?.comment !== scores[key]?.comment) {
+            valuesChanged = true
+            break
+          }
+        }
+        if (!valuesChanged) return prev
+      }
+      return scores
+    })
   }, [students])
 
   const updateScoreMutation = useMutation({

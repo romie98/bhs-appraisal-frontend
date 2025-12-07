@@ -3,20 +3,36 @@ import { apiFetch } from '../config/api'
 
 // Helper function for API calls with automatic token injection
 async function apiCall(endpoint, options = {}) {
-  const response = await apiFetch(endpoint, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  })
+  try {
+    const response = await apiFetch(endpoint, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    })
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
-    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+    // Handle 401 Unauthorized - token is invalid
+    if (response.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem('auth_token')
+      throw new Error('Authentication failed. Please login again.')
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    // Re-throw with better error message
+    if (error.message.includes('Authentication failed')) {
+      throw error
+    }
+    console.error(`API call failed for ${endpoint}:`, error)
+    throw error
   }
-
-  return response.json()
 }
 
 // Students API
