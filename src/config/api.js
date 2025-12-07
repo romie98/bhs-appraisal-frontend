@@ -27,8 +27,12 @@ function getApiBaseUrl() {
     // __APP_API_URL__ might not be defined in some contexts
   }
   // Fallback: environment variable (for development)
-  if (typeof import !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL) {
-    return normalizeUrl(import.meta.env.VITE_API_BASE_URL);
+  try {
+    if (import.meta?.env?.VITE_API_BASE_URL) {
+      return normalizeUrl(import.meta.env.VITE_API_BASE_URL);
+    }
+  } catch (e) {
+    // import.meta might not be available in some contexts
   }
   return '';
 }
