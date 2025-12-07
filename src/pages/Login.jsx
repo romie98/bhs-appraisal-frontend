@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { loginJson, loginWithGoogle } from "../services/authService"
+import { loginWithGoogle } from "../services/authService"
 import { Mail, Lock, AlertCircle, Loader2 } from "lucide-react"
 
 function Login() {
@@ -18,10 +18,9 @@ function Login() {
     setLoading(true)
 
     try {
-      const data = await loginJson(email, password)
-      // Store token and redirect
-      login(data.access_token)
-      navigate("/")
+      await login({ email, password })
+      // Redirect to /classes after successful login
+      navigate("/classes")
     } catch (err) {
       setError(err.message || "Failed to login. Please try again.")
     } finally {
@@ -187,8 +186,8 @@ function Login() {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
-            <Link to="/signup" className="text-sky-600 hover:text-sky-700 font-medium">
-              Sign up
+            <Link to="/register" className="text-sky-600 hover:text-sky-700 font-medium">
+              Register
             </Link>
           </p>
         </div>

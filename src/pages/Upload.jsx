@@ -11,10 +11,6 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { photoLibraryApi } from '../services/markbookApi'
-import { apiUrl } from '../config/api'
-
-// Simple static teacher id placeholder – swap for real auth later
-const TEACHER_ID = 'default-teacher-id'
 
 // GP subsection names mapping
 const GP_SUBSECTION_NAMES = {
@@ -76,13 +72,13 @@ function Upload() {
 
   // Load existing photo evidence for this teacher
   const { data: photos = [], isLoading: photosLoading } = useQuery({
-    queryKey: ['photo-library', TEACHER_ID],
-    queryFn: () => photoLibraryApi.list(TEACHER_ID),
+    queryKey: ['photo-library'],
+    queryFn: () => photoLibraryApi.list(),
   })
 
   // Upload + analyze mutation (single image)
   const uploadMutation = useMutation({
-    mutationFn: ({ file, teacherId }) => photoLibraryApi.upload(file, teacherId),
+    mutationFn: ({ file }) => photoLibraryApi.upload(file),
     onSuccess: (data) => {
       setResult(data)
       queryClient.invalidateQueries({ queryKey: ['photo-library'] })
@@ -115,7 +111,7 @@ function Upload() {
       return
     }
     setError('')
-    uploadMutation.mutate({ file, teacherId: TEACHER_ID })
+    uploadMutation.mutate({ file })
   }
 
   // Get all unique subsections from all photos for filter dropdown

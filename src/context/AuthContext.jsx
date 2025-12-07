@@ -1,15 +1,28 @@
 import { createContext, useState, useEffect, useContext } from "react"
-import { apiUrl } from "../config/api"
+import { getMe, login as loginService, register as registerService } from "../services/authService"
 
 const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => {
-    // Initialize from localStorage
-    return localStorage.getItem("token")
+    // Initialize from localStorage using "auth_token" key
+    return localStorage.getItem("auth_token")
   })
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const fetchUserInfo = async () => {
+    try {
+      const userData = await getMe()
+      setUser(userData)
+    } catch (error) {
+      console.error("Error fetching user info:", error)
+      // Token is invalid, clear it
+      logout()
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -19,38 +32,37 @@ export function AuthProvider({ children }) {
     } else {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const fetchUserInfo = async () => {
+  async function login(loginData) {
     try {
-      const response = await fetch(apiUrl("/auth/me"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-      } else {
-        // Token is invalid, clear it
-        logout()
-      }
+      const response = await loginService(loginData)
+      const newToken = response.access_token
+      localStorage.setItem("auth_token", newToken)
+      setToken(newToken)
+      // Fetch user info after login
+      await fetchUserInfo()
     } catch (error) {
-      console.error("Error fetching user info:", error)
-      logout()
-    } finally {
-      setLoading(false)
+      throw error
     }
   }
 
-  function login(newToken) {
-    localStorage.setItem("token", newToken)
-    setToken(newToken)
+  async function register(registerData) {
+    try {
+      const response = await registerService(registerData)
+      const newToken = response.access_token
+      localStorage.setItem("auth_token", newToken)
+      setToken(newToken)
+      // Fetch user info after registration
+      await fetchUserInfo()
+    } catch (error) {
+      throw error
+    }
   }
 
   function logout() {
-    localStorage.removeItem("token")
+    localStorage.removeItem("auth_token")
     setToken(null)
     setUser(null)
   }
@@ -60,6 +72,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    register,
     logout,
     isAuthenticated: !!token,
   }

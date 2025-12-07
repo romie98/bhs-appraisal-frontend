@@ -14,18 +14,15 @@ function LessonPlanUpload() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   
-  // For now, using a placeholder teacher_id - in production, get from auth context
-  const teacherId = 'default-teacher-id'
-  
   const [uploadMethod, setUploadMethod] = useState('file') // 'file' or 'text'
   const [title, setTitle] = useState('')
   const [file, setFile] = useState(null)
   const [textContent, setTextContent] = useState('')
   const [error, setError] = useState('')
 
-  // File upload mutation
+  // File upload mutation - backend gets user from JWT token
   const fileUploadMutation = useMutation({
-    mutationFn: ({ file, title, teacherId }) => lessonPlansApi.upload(file, title, teacherId),
+    mutationFn: ({ file, title }) => lessonPlansApi.upload(file, title),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['lesson-plans'] })
       navigate(`/lesson-plans/${data.id}`)
@@ -35,10 +32,10 @@ function LessonPlanUpload() {
     },
   })
 
-  // Text creation mutation
+  // Text creation mutation - backend gets user from JWT token
   const textCreateMutation = useMutation({
-    mutationFn: ({ title, content_text, teacher_id }) => 
-      lessonPlansApi.createFromText({ title, content_text, teacher_id }),
+    mutationFn: ({ title, content_text }) => 
+      lessonPlansApi.createFromText({ title, content_text }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['lesson-plans'] })
       navigate(`/lesson-plans/${data.id}`)
@@ -75,7 +72,7 @@ function LessonPlanUpload() {
         setError('Please select a file')
         return
       }
-      fileUploadMutation.mutate({ file, title, teacherId })
+      fileUploadMutation.mutate({ file, title })
     } else {
       if (!textContent.trim()) {
         setError('Please enter lesson plan content')
@@ -83,8 +80,7 @@ function LessonPlanUpload() {
       }
       textCreateMutation.mutate({ 
         title, 
-        content_text: textContent, 
-        teacher_id: teacherId 
+        content_text: textContent
       })
     }
   }

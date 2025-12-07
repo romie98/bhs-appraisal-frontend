@@ -63,6 +63,7 @@ function Portfolio() {
     setBuilding(true)
     setError(null)
     // Send empty arrays - backend will auto-fetch all evidence from database
+    // Backend determines user from JWT token
     buildMutation.mutate({
       lesson_evidence: [],
       log_evidence: [],
@@ -70,7 +71,6 @@ function Portfolio() {
       register_evidence: [],
       external_uploads: [],
       auto_fetch_all: true,
-      teacher_id: 'default-teacher-id', // TODO: Get from auth context
     })
   }
 

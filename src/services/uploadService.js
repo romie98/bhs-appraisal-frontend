@@ -1,5 +1,5 @@
 // Upload service for Supabase file uploads via backend
-import { apiUrl } from "../config/api"
+import { apiFetch } from "../config/api"
 
 /**
  * Upload a file to the backend, which handles Supabase storage
@@ -17,19 +17,15 @@ export async function uploadFile(file, type = "general") {
   switch (type) {
     case "evidence":
       endpoint = "/photo-library/upload"
-      // Evidence uses photo-library endpoint but needs teacher_id
-      // We'll need to get this from context/auth
-      const teacherId = 'default-teacher-id' // TODO: Get from auth context
-      formData.append("teacher_id", teacherId)
+      // teacher_id removed - backend gets it from JWT token
       break
     case "lesson-plan":
       endpoint = "/lesson-plans/upload"
-      // Lesson plans need title and teacher_id - handled separately
+      // Lesson plans need title - handled separately
       break
     case "photo":
       endpoint = "/photo-library/upload"
-      const photoTeacherId = 'default-teacher-id' // TODO: Get from auth context
-      formData.append("teacher_id", photoTeacherId)
+      // teacher_id removed - backend gets it from JWT token
       break
     case "logbook":
       endpoint = "/logbook/upload-image"
@@ -39,7 +35,7 @@ export async function uploadFile(file, type = "general") {
   }
 
   try {
-    const response = await fetch(apiUrl(endpoint), {
+    const response = await apiFetch(endpoint, {
       method: "POST",
       body: formData,
     })
@@ -71,20 +67,19 @@ export async function uploadFile(file, type = "general") {
 }
 
 /**
- * Upload lesson plan with title and teacher ID
+ * Upload lesson plan with title
  * @param {File} file - The file to upload
  * @param {string} title - Lesson plan title
- * @param {string} teacherId - Teacher ID
  * @returns {Promise<{success: boolean, path?: string, file_url?: string, error?: string}>}
  */
-export async function uploadLessonPlan(file, title, teacherId) {
+export async function uploadLessonPlan(file, title) {
   const formData = new FormData()
   formData.append("file", file)
   formData.append("title", title)
-  formData.append("teacher_id", teacherId)
+  // teacher_id removed - backend gets it from JWT token
 
   try {
-    const response = await fetch(apiUrl("/lesson-plans/upload"), {
+    const response = await apiFetch("/lesson-plans/upload", {
       method: "POST",
       body: formData,
     })
@@ -116,18 +111,17 @@ export async function uploadLessonPlan(file, title, teacherId) {
 }
 
 /**
- * Upload photo evidence with teacher ID
+ * Upload photo evidence
  * @param {File} file - The image file to upload
- * @param {string} teacherId - Teacher ID
  * @returns {Promise<{success: boolean, path?: string, file_url?: string, error?: string}>}
  */
-export async function uploadPhoto(file, teacherId) {
+export async function uploadPhoto(file) {
   const formData = new FormData()
   formData.append("file", file)
-  formData.append("teacher_id", teacherId)
+  // teacher_id removed - backend gets it from JWT token
 
   try {
-    const response = await fetch(apiUrl("/photo-library/upload"), {
+    const response = await apiFetch("/photo-library/upload", {
       method: "POST",
       body: formData,
     })

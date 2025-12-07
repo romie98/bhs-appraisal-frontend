@@ -1,9 +1,9 @@
 // AI Service for OpenAI integration
-import { apiUrl } from '../config/api'
+import { apiUrl, apiFetch } from '../config/api'
 
-// Helper function for API calls
+// Helper function for API calls with automatic token injection
 async function apiCall(endpoint, options = {}) {
-  const response = await fetch(apiUrl(endpoint), {
+  const response = await apiFetch(endpoint, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,

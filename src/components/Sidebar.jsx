@@ -29,7 +29,7 @@ function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }) {
     { path: '/gp6', label: 'GP6', icon: GraduationCap },
     { path: '/classes', label: 'Classes', icon: GraduationCap },
     { path: '/markbook', label: 'Mark Book', icon: BookOpen },
-    { path: '/register', label: 'Register', icon: ClipboardCheck },
+    { path: '/attendance-register', label: 'Register', icon: ClipboardCheck },
     { path: '/logbook', label: 'Log Book', icon: BookMarked },
     { path: '/lesson-plans', label: 'Lesson Plans', icon: FileText },
     { path: '/portfolio', label: 'Portfolio', icon: BookOpen },

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import GlobalLayout from './components/GlobalLayout'
+import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import GP1 from './pages/GP1'
 import GP2 from './pages/GP2'
@@ -12,8 +13,10 @@ import Contact from './pages/Contact'
 import Upload from './pages/Upload'
 import UploadEvidence from './pages/UploadEvidence'
 import LoginPage from './pages/LoginPage'
-import MarkBook from './pages/MarkBook'
+import Login from './pages/Login'
 import Register from './pages/Register'
+import MarkBook from './pages/MarkBook'
+import AttendanceRegister from './pages/AttendanceRegister'
 import MarkBookAnalytics from './pages/MarkBookAnalytics'
 import RegisterAnalytics from './pages/RegisterAnalytics'
 import Classes from './pages/Classes'
@@ -27,8 +30,9 @@ import LessonPlanDetail from './pages/LessonPlanDetail'
 function App() {
   return (
     <Routes>
-      {/* Login page without GlobalLayout */}
-      <Route path="/login" element={<LoginPage />} />
+      {/* Public pages without GlobalLayout */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       
       {/* All other pages with GlobalLayout */}
       <Route path="/*" element={
@@ -43,19 +47,21 @@ function App() {
             <Route path="/gp6" element={<GP6 />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/upload-evidence" element={<UploadEvidence />} />
-            <Route path="/markbook" element={<MarkBook />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/markbook-analytics" element={<MarkBookAnalytics />} />
-            <Route path="/register-analytics" element={<RegisterAnalytics />} />
-            <Route path="/classes" element={<Classes />} />
-            <Route path="/logbook" element={<LogBook />} />
-            <Route path="/logbook/:entryId" element={<LogBookDetail />} />
-            <Route path="/lesson-plans" element={<LessonPlans />} />
-            <Route path="/lesson-plans/upload" element={<LessonPlanUpload />} />
-            <Route path="/lesson-plans/:id" element={<LessonPlanDetail />} />
-            <Route path="/portfolio" element={<Portfolio />} />
+            
+            {/* Protected routes - require authentication */}
+            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/upload-evidence" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
+            <Route path="/markbook" element={<ProtectedRoute><MarkBook /></ProtectedRoute>} />
+            <Route path="/attendance-register" element={<ProtectedRoute><AttendanceRegister /></ProtectedRoute>} />
+            <Route path="/markbook-analytics" element={<ProtectedRoute><MarkBookAnalytics /></ProtectedRoute>} />
+            <Route path="/register-analytics" element={<ProtectedRoute><RegisterAnalytics /></ProtectedRoute>} />
+            <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+            <Route path="/logbook" element={<ProtectedRoute><LogBook /></ProtectedRoute>} />
+            <Route path="/logbook/:entryId" element={<ProtectedRoute><LogBookDetail /></ProtectedRoute>} />
+            <Route path="/lesson-plans" element={<ProtectedRoute><LessonPlans /></ProtectedRoute>} />
+            <Route path="/lesson-plans/upload" element={<ProtectedRoute><LessonPlanUpload /></ProtectedRoute>} />
+            <Route path="/lesson-plans/:id" element={<ProtectedRoute><LessonPlanDetail /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
           </Routes>
         </GlobalLayout>
       } />

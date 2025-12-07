@@ -42,6 +42,15 @@ function getApiBaseUrl() {
 export const API_BASE_URL = getApiBaseUrl();
 
 /**
+ * Get authentication token from localStorage
+ * @returns {string|null} The auth token or null
+ */
+function getAuthToken() {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth_token');
+}
+
+/**
  * Construct a full API URL from a path
  * @param {string} path - API endpoint path (e.g., "/auth/login")
  * @returns {string} Full URL (always HTTPS)
@@ -58,6 +67,34 @@ export function apiUrl(path) {
   const fullUrl = `${baseUrl}${fixed}`;
   // Ensure the final URL is always HTTPS (double-check normalization)
   return normalizeUrl(fullUrl);
+}
+
+/**
+ * Make an authenticated API request with automatic token injection
+ * Automatically adds Authorization header if token exists
+ * @param {string} path - API endpoint path
+ * @param {RequestInit} options - Fetch options
+ * @returns {Promise<Response>}
+ */
+export async function apiFetch(path, options = {}) {
+  const url = apiUrl(path);
+  const token = getAuthToken();
+  
+  // Prepare headers
+  const headers = new Headers(options.headers || {});
+  
+  // Add Authorization header if token exists and not already set
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
+  // Merge with existing options
+  const fetchOptions = {
+    ...options,
+    headers,
+  };
+  
+  return fetch(url, fetchOptions);
 }
 
 

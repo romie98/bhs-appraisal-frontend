@@ -1,9 +1,9 @@
 // API service for Mark Book & Register system
-import { apiUrl } from '../config/api'
+import { apiFetch } from '../config/api'
 
-// Helper function for API calls
+// Helper function for API calls with automatic token injection
 async function apiCall(endpoint, options = {}) {
-  const response = await fetch(apiUrl(endpoint), {
+  const response = await apiFetch(endpoint, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -136,20 +136,18 @@ export const logbookApi = {
 
 // Lesson Plans API
 export const lessonPlansApi = {
-  getAll: (teacherId) => {
-    const params = new URLSearchParams()
-    if (teacherId) params.append('teacher_id', teacherId)
-    const query = params.toString()
-    return apiCall(`/lesson-plans${query ? `?${query}` : ''}`)
+  getAll: () => {
+    // Backend determines user from JWT token
+    return apiCall('/lesson-plans')
   },
   getById: (id) => apiCall(`/lesson-plans/${id}`),
-  upload: async (file, title, teacherId) => {
+  upload: async (file, title) => {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('title', title)
-    formData.append('teacher_id', teacherId)
+    // teacher_id removed - backend gets it from JWT token
     
-    const response = await fetch(apiUrl('/lesson-plans/upload'), {
+    const response = await apiFetch('/lesson-plans/upload', {
       method: 'POST',
       body: formData,
     })
@@ -177,12 +175,12 @@ export const lessonPlansApi = {
 
 // Photo Evidence Library API
 export const photoLibraryApi = {
-  upload: async (file, teacherId) => {
+  upload: async (file) => {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('teacher_id', teacherId)
+    // teacher_id removed - backend gets it from JWT token
 
-    const response = await fetch(apiUrl('/photo-library/upload'), {
+    const response = await apiFetch('/photo-library/upload', {
       method: 'POST',
       body: formData,
     })
@@ -195,11 +193,9 @@ export const photoLibraryApi = {
     return response.json()
   },
 
-  list: (teacherId) => {
-    const params = new URLSearchParams()
-    if (teacherId) params.append('teacher_id', teacherId)
-    const query = params.toString()
-    return apiCall(`/photo-library${query ? `?${query}` : ''}`)
+  list: () => {
+    // Backend determines user from JWT token
+    return apiCall('/photo-library')
   },
 
   getById: (id) => apiCall(`/photo-library/${id}`),
@@ -209,7 +205,7 @@ export const photoLibraryApi = {
 export const exportApi = {
   exportMarkBookPDF: async (grade, filters) => {
     try {
-      const response = await fetch(apiUrl(`/export/markbook/${grade}`))
+      const response = await apiFetch(`/export/markbook/${grade}`)
       if (!response.ok) throw new Error('Failed to generate PDF')
       
       const blob = await response.blob()
@@ -228,7 +224,7 @@ export const exportApi = {
   },
   exportRegisterPDF: async (grade, dateRange) => {
     try {
-      const response = await fetch(apiUrl(`/export/attendance/${grade}`))
+      const response = await apiFetch(`/export/attendance/${grade}`)
       if (!response.ok) throw new Error('Failed to generate PDF')
       
       const blob = await response.blob()
@@ -247,7 +243,7 @@ export const exportApi = {
   },
   exportStudentProgressPDF: async (studentId) => {
     try {
-      const response = await fetch(apiUrl(`/export/student/${studentId}`))
+      const response = await apiFetch(`/export/student/${studentId}`)
       if (!response.ok) throw new Error('Failed to generate PDF')
       
       const blob = await response.blob()

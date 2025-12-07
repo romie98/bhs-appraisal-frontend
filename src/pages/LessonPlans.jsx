@@ -17,15 +17,12 @@ function LessonPlans() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   
-  // For now, using a placeholder teacher_id - in production, get from auth context
-  const teacherId = 'default-teacher-id'
-  
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Fetch lesson plans
+  // Fetch lesson plans - backend determines user from JWT token
   const { data: lessonPlans = [], isLoading } = useQuery({
-    queryKey: ['lesson-plans', teacherId],
-    queryFn: () => lessonPlansApi.getAll(teacherId),
+    queryKey: ['lesson-plans'],
+    queryFn: () => lessonPlansApi.getAll(),
   })
 
   // Delete mutation
