@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar for horizontal evidence sliders */
+  .evidence-slider::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .evidence-slider::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  .evidence-slider::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  
+  .evidence-slider::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* Smooth scroll snap for evidence cards */
+  .evidence-slider {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  .evidence-slider > div > div {
+    scroll-snap-align: start;
+  }
+
+  /* Responsive card widths */
+  @media (min-width: 768px) {
+    .evidence-slider > div > div {
+      width: calc(50% - 0.5rem);
+      max-width: 320px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .evidence-slider > div > div {
+      width: calc(33.333% - 0.67rem);
+      max-width: 320px;
+    }
+  }
+
+  /* Optimize evidence card hover performance */
+  .evidence-card-container {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  /* Optimize modal image rendering */
+  .evidence-preview-image {
+    image-rendering: auto;
+    image-rendering: crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+    transform: translateZ(0);
+    will-change: auto;
+  }
+}
+
