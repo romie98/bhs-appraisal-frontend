@@ -36,6 +36,13 @@ function MarkBook() {
     queryFn: () => markbookApi.getClasses(),
   })
 
+  // Auto-select first class when classes load and no class is selected
+  useEffect(() => {
+    if (!selectedClassId && classes.length > 0) {
+      setSelectedClassId(classes[0].id);
+    }
+  }, [classes, selectedClassId]);
+
   // Fetch students for selected class
   const { data: students = [], isLoading: studentsLoading, error: studentsError } = useQuery({
     queryKey: ['class-students', selectedClassId],
