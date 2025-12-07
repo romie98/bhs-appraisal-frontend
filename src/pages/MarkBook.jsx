@@ -48,19 +48,15 @@ function MarkBook() {
     queryKey: ['class-students', selectedClassId],
     queryFn: async () => {
       if (!selectedClassId) return []
-      try {
-        if (import.meta.env.DEV) {
-          console.log('Fetching students for class:', selectedClassId)
-        }
-        const result = await classesApi.getStudents(selectedClassId)
-        if (import.meta.env.DEV) {
-          console.log('Students fetched:', result)
-        }
-        return result || []
-      } catch (error) {
-        console.error('Error fetching students:', error)
-        return [] // Return empty array on error to prevent hanging
+      if (import.meta.env.DEV) {
+        console.log('Fetching students for class:', selectedClassId)
       }
+      const result = await classesApi.getStudents(selectedClassId)
+      if (import.meta.env.DEV) {
+        console.log('Students fetched:', result)
+      }
+      return result || []
+      // Errors are now thrown (not swallowed) so React Query can handle them
     },
     enabled: !!selectedClassId,
     retry: 1, // Only retry once
@@ -86,12 +82,8 @@ function MarkBook() {
     queryKey: ['assessments', selectedClassId],
     queryFn: async () => {
       if (!selectedClassId) return []
-      try {
-        return await assessmentsApi.getAll(null, selectedClassId) || []
-      } catch (error) {
-        console.error('Error fetching assessments:', error)
-        return [] // Return empty array on error to prevent hanging
-      }
+      return await assessmentsApi.getAll(null, selectedClassId) || []
+      // Errors are now thrown (not swallowed) so React Query can handle them
     },
     enabled: !!selectedClassId,
     retry: 1, // Only retry once
@@ -128,19 +120,13 @@ function MarkBook() {
       if (!selectedClassId || !assessments || assessments.length === 0) {
         return []
       }
-      try {
-        const scoresPromises = assessments.map(assessment => 
-          scoresApi.getByAssessment(assessment.id, selectedClassId).catch(err => {
-            console.error(`Error fetching scores for assessment ${assessment.id}:`, err)
-            return [] // Return empty array on error to prevent hanging
-          })
-        )
-        const scoresArrays = await Promise.all(scoresPromises)
-        return scoresArrays.flat()
-      } catch (error) {
-        console.error('Error loading scores:', error)
-        return [] // Return empty array on error
-      }
+      // Fetch all scores - errors will be thrown and handled by React Query
+      const scoresPromises = assessments.map(assessment => 
+        scoresApi.getByAssessment(assessment.id, selectedClassId)
+      )
+      const scoresArrays = await Promise.all(scoresPromises)
+      return scoresArrays.flat()
+      // Errors are now thrown (not swallowed) so React Query can handle them
     },
     enabled: !!selectedClassId && assessments.length > 0,
     retry: 1, // Only retry once

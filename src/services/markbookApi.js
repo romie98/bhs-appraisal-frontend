@@ -3,6 +3,10 @@ import { apiFetch } from '../config/api'
 
 // Helper function for API calls with automatic token injection
 async function apiCall(endpoint, options = {}) {
+  console.log("=== API DEBUG START ===");
+  console.log("ENDPOINT:", endpoint);
+  console.log("OPTIONS:", { method: options.method || 'GET', hasBody: !!options.body });
+  
   try {
     // Ensure endpoint is properly formatted
     let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
@@ -18,6 +22,17 @@ async function apiCall(endpoint, options = {}) {
       cleanEndpoint = cleanEndpoint.slice(0, -1)
     }
     
+    // Build full URL for logging
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const fullUrl = `${apiUrl}${cleanEndpoint}`
+    
+    console.log("CALLING:", fullUrl);
+    console.log("METHOD:", options.method || 'GET');
+    
+    // Check authorization token
+    const token = localStorage.getItem('auth_token');
+    console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
+    
     const response = await apiFetch(cleanEndpoint, {
       headers: {
         'Content-Type': 'application/json',
@@ -28,62 +43,137 @@ async function apiCall(endpoint, options = {}) {
       ...options,
     })
     
-    // Note: fetch() automatically follows redirects, so we won't see 307 here
-    // If we get here, the redirect was already followed
-
+    console.log("STATUS:", response.status);
+    console.log("STATUS TEXT:", response.statusText);
+    console.log("HEADERS:", Object.fromEntries(response.headers.entries()));
+    
+    // Clone response to read text without consuming the body
+    const clonedResponse = response.clone();
+    const rawText = await clonedResponse.text().catch(() => '');
+    
+    console.log("RAW RESPONSE LENGTH:", rawText.length, "bytes");
+    console.log("RAW RESPONSE (first 500 chars):", rawText.substring(0, 500));
+    
+    // Detect non-JSON responses (HTML, empty body, redirects)
+    const contentType = response.headers.get('content-type') || '';
+    console.log("CONTENT-TYPE:", contentType);
+    
+    // Check for redirects (even though fetch follows them, we log the final status)
+    if (response.status === 307 || response.status === 308 || response.status === 301 || response.status === 302) {
+      const location = response.headers.get('location');
+      console.error("⚠️ REDIRECT DETECTED:", {
+        status: response.status,
+        location: location,
+        endpoint: cleanEndpoint
+      });
+    }
+    
+    // Check for empty responses
+    if (rawText.length === 0) {
+      console.error("⚠️ EMPTY RESPONSE DETECTED:", fullUrl);
+      throw new Error(`Empty response from ${fullUrl} (0 bytes)`);
+    }
+    
+    // Check for HTML responses
+    if (contentType.includes('text/html')) {
+      console.error("⚠️ HTML RESPONSE DETECTED:", fullUrl);
+      console.error("HTML CONTENT:", rawText.substring(0, 500));
+      throw new Error(`HTML response received from ${fullUrl} (expected JSON)`);
+    }
+    
     // Handle 401 Unauthorized - token is invalid
     if (response.status === 401) {
+      console.error("⚠️ 401 UNAUTHORIZED:", fullUrl);
       // Clear invalid token
-      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_token');
       // Check if response is HTML (login page) instead of JSON
-      const contentType = response.headers.get('content-type') || ''
       if (contentType.includes('text/html')) {
+        console.error("401 HTML RESPONSE:", rawText.substring(0, 500));
         throw new Error('Authentication failed. Please login again.')
       }
-      const error = await response.json().catch(() => ({ detail: 'Authentication failed. Please login again.' }))
-      throw new Error(error.detail || 'Authentication failed. Please login again.')
+      try {
+        const error = JSON.parse(rawText);
+        console.error("401 ERROR JSON:", error);
+        throw new Error(error.detail || 'Authentication failed. Please login again.')
+      } catch (parseError) {
+        console.error("401 PARSE ERROR:", parseError);
+        throw new Error('Authentication failed. Please login again.')
+      }
     }
 
     // Handle 403 Forbidden
     if (response.status === 403) {
-      const contentType = response.headers.get('content-type') || ''
+      console.error("⚠️ 403 FORBIDDEN:", fullUrl);
       if (contentType.includes('text/html')) {
+        console.error("403 HTML RESPONSE:", rawText.substring(0, 500));
         throw new Error('Access forbidden. You do not have permission to access this resource.')
       }
-      const error = await response.json().catch(() => ({ detail: 'Access forbidden' }))
-      throw new Error(error.detail || 'Access forbidden')
+      try {
+        const error = JSON.parse(rawText);
+        console.error("403 ERROR JSON:", error);
+        throw new Error(error.detail || 'Access forbidden')
+      } catch (parseError) {
+        console.error("403 PARSE ERROR:", parseError);
+        throw new Error('Access forbidden')
+      }
     }
 
     if (!response.ok) {
+      console.error("⚠️ HTTP ERROR:", response.status, fullUrl);
       // Check content type before trying to parse JSON
-      const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
-        const text = await response.text().catch(() => 'Unknown error')
-        throw new Error(`Server returned non-JSON response (${response.status}): ${text.substring(0, 100)}`)
+        console.error("NON-JSON ERROR RESPONSE:", rawText.substring(0, 500));
+        throw new Error(`Server returned non-JSON response (${response.status}): ${rawText.substring(0, 100)}`)
       }
       
-      const error = await response.json().catch(() => ({ 
-        detail: `HTTP error! status: ${response.status}` 
-      }))
-      throw new Error(error.detail || error.message || `HTTP error! status: ${response.status}`)
+      try {
+        const error = JSON.parse(rawText);
+        console.error("ERROR JSON:", error);
+        throw new Error(error.detail || error.message || `HTTP error! status: ${response.status}`)
+      } catch (parseError) {
+        console.error("ERROR PARSE ERROR:", parseError);
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
     }
 
     // Verify response is JSON before parsing
-    const contentType = response.headers.get('content-type') || ''
     if (!contentType.includes('application/json')) {
       // For some endpoints (like file downloads), this might be OK
       // But for API endpoints, we expect JSON
       if (endpoint.includes('/export/') || endpoint.includes('/download/')) {
+        console.log("⚠️ NON-JSON RESPONSE (expected for export/download):", contentType);
         // These might return blobs, let the caller handle it
         return response
       }
-      const text = await response.text().catch(() => 'Unknown response')
-      throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`)
+      console.error("⚠️ NON-JSON RESPONSE (unexpected):", fullUrl, contentType);
+      console.error("RAW CONTENT:", rawText.substring(0, 500));
+      throw new Error(`Server returned non-JSON response: ${rawText.substring(0, 100)}`)
     }
 
-    const data = await response.json()
-    return data
+    // Parse JSON
+    let json;
+    try {
+      json = JSON.parse(rawText);
+      console.log("JSON PARSED SUCCESSFULLY");
+      console.log("JSON DATA TYPE:", Array.isArray(json) ? 'array' : typeof json);
+      console.log("JSON DATA LENGTH:", Array.isArray(json) ? json.length : Object.keys(json || {}).length);
+      console.log("JSON DATA (first 500 chars):", JSON.stringify(json).substring(0, 500));
+    } catch (parseError) {
+      console.error("⚠️ JSON PARSE ERROR:", parseError);
+      console.error("RAW TEXT THAT FAILED TO PARSE:", rawText);
+      throw new Error(`Failed to parse JSON response: ${parseError.message}`)
+    }
+    
+    console.log("=== API DEBUG END ===");
+    return json
   } catch (error) {
+    console.error("=== API ERROR ===");
+    console.error("ENDPOINT:", endpoint);
+    console.error("ERROR:", error);
+    console.error("ERROR MESSAGE:", error.message);
+    console.error("ERROR STACK:", error.stack);
+    console.error("=== API ERROR END ===");
+    
     // Re-throw with better error message
     if (error.message.includes('Authentication failed') || error.message.includes('Access forbidden')) {
       throw error
@@ -92,7 +182,7 @@ async function apiCall(endpoint, options = {}) {
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error('Network error. Please check your connection and try again.')
     }
-    console.error(`API call failed for ${endpoint}:`, error)
+    // Re-throw the error (don't swallow it)
     throw error
   }
 }
@@ -317,6 +407,10 @@ export const lessonPlansApi = {
   },
   getById: (id) => apiCall(`/lesson-plans/${id}`),
   upload: async (file, title) => {
+    console.log("=== API DEBUG START (lessonPlansApi.upload) ===");
+    console.log("FILE:", file?.name, file?.size, "bytes");
+    console.log("TITLE:", title);
+    
     if (!file || !title) {
       throw new Error('File and title are required')
     }
@@ -326,36 +420,79 @@ export const lessonPlansApi = {
     formData.append('title', title)
     // teacher_id removed - backend gets it from JWT token
     
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const fullUrl = `${apiUrl}/lesson-plans/upload`
+    console.log("CALLING:", fullUrl);
+    console.log("METHOD: POST");
+    
+    const token = localStorage.getItem('auth_token');
+    console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
+    
     try {
       const response = await apiFetch('/lesson-plans/upload', {
         method: 'POST',
         body: formData,
       })
       
+      console.log("STATUS:", response.status);
+      console.log("STATUS TEXT:", response.statusText);
+      console.log("HEADERS:", Object.fromEntries(response.headers.entries()));
+      
+      const clonedResponse = response.clone();
+      const rawText = await clonedResponse.text().catch(() => '');
+      console.log("RAW RESPONSE LENGTH:", rawText.length, "bytes");
+      console.log("RAW RESPONSE (first 500 chars):", rawText.substring(0, 500));
+      
+      const contentType = response.headers.get('content-type') || '';
+      console.log("CONTENT-TYPE:", contentType);
+      
       // Handle 401 Unauthorized
       if (response.status === 401) {
+        console.error("⚠️ 401 UNAUTHORIZED:", fullUrl);
         localStorage.removeItem('auth_token')
-        throw new Error('Authentication failed. Please login again.')
+        if (contentType.includes('text/html')) {
+          console.error("401 HTML RESPONSE:", rawText.substring(0, 500));
+          throw new Error('Authentication failed. Please login again.')
+        }
+        try {
+          const error = JSON.parse(rawText);
+          console.error("401 ERROR JSON:", error);
+          throw new Error(error.detail || 'Authentication failed. Please login again.')
+        } catch (parseError) {
+          throw new Error('Authentication failed. Please login again.')
+        }
       }
       
       if (!response.ok) {
-        const contentType = response.headers.get('content-type') || ''
+        console.error("⚠️ HTTP ERROR:", response.status, fullUrl);
         if (!contentType.includes('application/json')) {
-          const text = await response.text().catch(() => 'Unknown error')
-          throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}`)
+          console.error("NON-JSON ERROR RESPONSE:", rawText.substring(0, 500));
+          throw new Error(`Server error (${response.status}): ${rawText.substring(0, 100)}`)
         }
-        const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
-        throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+        try {
+          const error = JSON.parse(rawText);
+          console.error("ERROR JSON:", error);
+          throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+        } catch (parseError) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
       }
       
-      const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
+        console.error("⚠️ NON-JSON RESPONSE:", fullUrl, contentType);
+        console.error("RAW CONTENT:", rawText.substring(0, 500));
         throw new Error('Server returned non-JSON response')
       }
       
-      return await response.json()
+      const json = JSON.parse(rawText);
+      console.log("JSON PARSED:", json);
+      console.log("=== API DEBUG END ===");
+      return json
     } catch (error) {
-      console.error('Error uploading lesson plan:', error)
+      console.error("=== API ERROR ===");
+      console.error("ENDPOINT: /lesson-plans/upload");
+      console.error("ERROR:", error);
+      console.error("=== API ERROR END ===");
       throw error
     }
   },
@@ -376,6 +513,9 @@ export const lessonPlansApi = {
 // Photo Evidence Library API
 export const photoLibraryApi = {
   upload: async (file) => {
+    console.log("=== API DEBUG START (photoLibraryApi.upload) ===");
+    console.log("FILE:", file?.name, file?.size, "bytes");
+    
     if (!file) {
       throw new Error('File is required')
     }
@@ -384,36 +524,79 @@ export const photoLibraryApi = {
     formData.append('file', file)
     // teacher_id removed - backend gets it from JWT token
 
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const fullUrl = `${apiUrl}/photo-library/upload`
+    console.log("CALLING:", fullUrl);
+    console.log("METHOD: POST");
+    
+    const token = localStorage.getItem('auth_token');
+    console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
+
     try {
       const response = await apiFetch('/photo-library/upload', {
         method: 'POST',
         body: formData,
       })
 
+      console.log("STATUS:", response.status);
+      console.log("STATUS TEXT:", response.statusText);
+      console.log("HEADERS:", Object.fromEntries(response.headers.entries()));
+      
+      const clonedResponse = response.clone();
+      const rawText = await clonedResponse.text().catch(() => '');
+      console.log("RAW RESPONSE LENGTH:", rawText.length, "bytes");
+      console.log("RAW RESPONSE (first 500 chars):", rawText.substring(0, 500));
+      
+      const contentType = response.headers.get('content-type') || '';
+      console.log("CONTENT-TYPE:", contentType);
+
       // Handle 401 Unauthorized
       if (response.status === 401) {
+        console.error("⚠️ 401 UNAUTHORIZED:", fullUrl);
         localStorage.removeItem('auth_token')
-        throw new Error('Authentication failed. Please login again.')
+        if (contentType.includes('text/html')) {
+          console.error("401 HTML RESPONSE:", rawText.substring(0, 500));
+          throw new Error('Authentication failed. Please login again.')
+        }
+        try {
+          const error = JSON.parse(rawText);
+          console.error("401 ERROR JSON:", error);
+          throw new Error(error.detail || 'Authentication failed. Please login again.')
+        } catch (parseError) {
+          throw new Error('Authentication failed. Please login again.')
+        }
       }
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type') || ''
+        console.error("⚠️ HTTP ERROR:", response.status, fullUrl);
         if (!contentType.includes('application/json')) {
-          const text = await response.text().catch(() => 'Unknown error')
-          throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}`)
+          console.error("NON-JSON ERROR RESPONSE:", rawText.substring(0, 500));
+          throw new Error(`Server error (${response.status}): ${rawText.substring(0, 100)}`)
         }
-        const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
-        throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+        try {
+          const error = JSON.parse(rawText);
+          console.error("ERROR JSON:", error);
+          throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+        } catch (parseError) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
       }
 
-      const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
+        console.error("⚠️ NON-JSON RESPONSE:", fullUrl, contentType);
+        console.error("RAW CONTENT:", rawText.substring(0, 500));
         throw new Error('Server returned non-JSON response')
       }
 
-      return await response.json()
+      const json = JSON.parse(rawText);
+      console.log("JSON PARSED:", json);
+      console.log("=== API DEBUG END ===");
+      return json
     } catch (error) {
-      console.error('Error uploading photo:', error)
+      console.error("=== API ERROR ===");
+      console.error("ENDPOINT: /photo-library/upload");
+      console.error("ERROR:", error);
+      console.error("=== API ERROR END ===");
       throw error
     }
   },
