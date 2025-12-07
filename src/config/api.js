@@ -86,6 +86,11 @@ export async function apiFetch(path, options = {}) {
   const url = normalizeUrl(`${baseUrl}${fixed}`);
   const token = getAuthToken();
   
+  // Log the full URL for debugging (only in development)
+  if (import.meta.env.DEV) {
+    console.log("FETCH:", url, options.method || 'GET');
+  }
+  
   // Prepare headers
   const headers = new Headers(options.headers || {});
   

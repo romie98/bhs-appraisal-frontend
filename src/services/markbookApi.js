@@ -5,7 +5,26 @@ import { apiFetch } from '../config/api'
 async function apiCall(endpoint, options = {}) {
   try {
     // Ensure endpoint is properly formatted
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    
+    // FastAPI is strict about trailing slashes for GET requests
+    // Add trailing slash for GET requests to prevent 307 redirects
+    const isGetRequest = !options.method || options.method === 'GET'
+    if (isGetRequest && !cleanEndpoint.includes('?') && !cleanEndpoint.endsWith('/')) {
+      cleanEndpoint = `${cleanEndpoint}/`
+    }
+    // Remove trailing slash for POST/PUT/DELETE (unless it's a path parameter)
+    if (!isGetRequest && cleanEndpoint.endsWith('/') && !cleanEndpoint.match(/\/[^/]+\/$/)) {
+      cleanEndpoint = cleanEndpoint.slice(0, -1)
+    }
+    
+    // Build full URL for logging
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
+    const fullUrl = `${apiUrl}${cleanEndpoint}`
+    
+    if (import.meta.env.DEV) {
+      console.log("FETCH:", fullUrl, options.method || 'GET')
+    }
     
     const response = await apiFetch(cleanEndpoint, {
       headers: {
@@ -14,6 +33,52 @@ async function apiCall(endpoint, options = {}) {
       },
       ...options,
     })
+    
+    // Handle 307 Temporary Redirect (trailing slash issue)
+    if (response.status === 307 || response.status === 308) {
+      const location = response.headers.get('location')
+      if (location && import.meta.env.DEV) {
+        console.warn(`⚠️ 307 Redirect detected from ${cleanEndpoint} to ${location}`)
+        console.warn('This indicates a trailing slash mismatch. The endpoint should be fixed.')
+      }
+      // Extract relative path from location header (handle absolute URLs)
+      let redirectPath = location
+      if (location && location.startsWith('http')) {
+        // Extract path from absolute URL
+        try {
+          const url = new URL(location)
+          redirectPath = url.pathname + url.search
+        } catch (e) {
+          redirectPath = location
+        }
+      }
+      // Follow the redirect automatically
+      const redirectResponse = await apiFetch(redirectPath || cleanEndpoint, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        ...options,
+      })
+      // Process redirect response as normal
+      if (!redirectResponse.ok) {
+        const contentType = redirectResponse.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+          const text = await redirectResponse.text().catch(() => 'Unknown error')
+          throw new Error(`Server returned non-JSON response (${redirectResponse.status}): ${text.substring(0, 100)}`)
+        }
+        const error = await redirectResponse.json().catch(() => ({ 
+          detail: `HTTP error! status: ${redirectResponse.status}` 
+        }))
+        throw new Error(error.detail || error.message || `HTTP error! status: ${redirectResponse.status}`)
+      }
+      const contentType = redirectResponse.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        const text = await redirectResponse.text().catch(() => 'Unknown response')
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`)
+      }
+      return await redirectResponse.json()
+    }
 
     // Handle 401 Unauthorized - token is invalid
     if (response.status === 401) {
@@ -83,8 +148,8 @@ async function apiCall(endpoint, options = {}) {
 
 // Students API
 export const studentsApi = {
-  getAll: (grade) => apiCall(`/students${grade ? `?grade=${grade}` : ''}`),
-  getById: (id) => apiCall(`/students/${id}`),
+  getAll: (grade) => apiCall(`/students/${grade ? `?grade=${grade}` : ''}`),
+  getById: (id) => apiCall(`/students/${id}/`),
   create: (data) => apiCall('/students', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiCall(`/students/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id) => apiCall(`/students/${id}`, { method: 'DELETE' }),
@@ -97,13 +162,15 @@ export const assessmentsApi = {
     if (classId) params.append('class_id', classId)
     else if (grade) params.append('grade', grade)
     const query = params.toString()
-    return apiCall(`/assessments${query ? `?${query}` : ''}`)
+    // FastAPI expects trailing slash for GET requests (before query string)
+    return apiCall(`/assessments/${query ? `?${query}` : ''}`)
   },
   getById: (id) => {
     if (!id) {
       throw new Error('Assessment ID is required')
     }
-    return apiCall(`/assessments/${id}`)
+    // FastAPI expects trailing slash for GET requests with path params
+    return apiCall(`/assessments/${id}/`)
   },
   create: (data) => {
     if (!data) {
@@ -135,7 +202,8 @@ export const assessmentsApi = {
     }
     const params = new URLSearchParams()
     params.append('class_id', classId)
-    return apiCall(`/assessments/${assessmentId}/students-with-scores?${params.toString()}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/assessments/${assessmentId}/students-with-scores/?${params.toString()}`)
   },
 }
 
@@ -148,13 +216,15 @@ export const scoresApi = {
     const params = new URLSearchParams()
     if (classId) params.append('class_id', classId)
     const query = params.toString()
-    return apiCall(`/assessments/scores/by-assessment/${assessmentId}${query ? `?${query}` : ''}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/assessments/scores/by-assessment/${assessmentId}/${query ? `?${query}` : ''}`)
   },
   getByStudent: (studentId) => {
     if (!studentId) {
       throw new Error('Student ID is required')
     }
-    return apiCall(`/assessments/scores/by-student/${studentId}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/assessments/scores/by-student/${studentId}/`)
   },
   createBulk: (data) => {
     if (!data || !data.assessment_id || !data.scores || !Array.isArray(data.scores)) {
@@ -194,7 +264,8 @@ export const registerApi = {
     if (params.date) queryParams.append('date', params.date)
     if (params.student_id) queryParams.append('student_id', params.student_id)
     const query = queryParams.toString()
-    return apiCall(`/register${query ? `?${query}` : ''}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/register/${query ? `?${query}` : ''}`)
   },
   create: (data) => apiCall('/register', { method: 'POST', body: JSON.stringify(data) }),
   createBulk: (data) => apiCall('/register/bulk', { method: 'POST', body: JSON.stringify(data) }),
@@ -203,24 +274,27 @@ export const registerApi = {
     const params = new URLSearchParams()
     if (classId) params.append('class_id', classId)
     else if (grade) params.append('grade', grade)
-    return apiCall(`/register/summary/weekly?${params.toString()}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/register/summary/weekly/?${params.toString()}`)
   },
   getMonthlySummary: (grade, classId) => {
     const params = new URLSearchParams()
     if (classId) params.append('class_id', classId)
     else if (grade) params.append('grade', grade)
-    return apiCall(`/register/summary/monthly?${params.toString()}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/register/summary/monthly/?${params.toString()}`)
   },
 }
 
 // Classes API
 export const classesApi = {
-  getAll: () => apiCall('/classes'),
+  getAll: () => apiCall('/classes/'),
   getById: (id) => {
     if (!id) {
       throw new Error('Class ID is required')
     }
-    return apiCall(`/classes/${id}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/classes/${id}/`)
   },
   create: (data) => {
     if (!data) {
@@ -238,7 +312,8 @@ export const classesApi = {
     if (!classId) {
       throw new Error('Class ID is required')
     }
-    return apiCall(`/classes/${classId}/students`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/classes/${classId}/students/`)
   },
   addStudent: (classId, studentId) => {
     if (!classId || !studentId) {
@@ -271,7 +346,7 @@ export const classesApi = {
 
 // Markbook helper API
 export const markbookApi = {
-  getClasses: () => apiCall('/markbook/classes'),
+  getClasses: () => apiCall('/markbook/classes/'),
 }
 
 // Log Book API
@@ -285,9 +360,10 @@ export const logbookApi = {
     if (params.date_to) queryParams.append('date_to', params.date_to)
     if (params.search) queryParams.append('search', params.search)
     const query = queryParams.toString()
-    return apiCall(`/logbook${query ? `?${query}` : ''}`)
+    // FastAPI expects trailing slash for GET requests
+    return apiCall(`/logbook/${query ? `?${query}` : ''}`)
   },
-  getById: (id) => apiCall(`/logbook/${id}`),
+  getById: (id) => apiCall(`/logbook/${id}/`),
   create: (data) => apiCall('/logbook', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiCall(`/logbook/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id) => apiCall(`/logbook/${id}`, { method: 'DELETE' }),
@@ -297,9 +373,10 @@ export const logbookApi = {
 export const lessonPlansApi = {
   getAll: () => {
     // Backend determines user from JWT token
-    return apiCall('/lesson-plans')
+    // FastAPI expects trailing slash for GET requests
+    return apiCall('/lesson-plans/')
   },
-  getById: (id) => apiCall(`/lesson-plans/${id}`),
+  getById: (id) => apiCall(`/lesson-plans/${id}/`),
   upload: async (file, title) => {
     if (!file || !title) {
       throw new Error('File and title are required')
@@ -404,10 +481,11 @@ export const photoLibraryApi = {
 
   list: () => {
     // Backend determines user from JWT token
-    return apiCall('/photo-library')
+    // FastAPI expects trailing slash for GET requests
+    return apiCall('/photo-library/')
   },
 
-  getById: (id) => apiCall(`/photo-library/${id}`),
+  getById: (id) => apiCall(`/photo-library/${id}/`),
 }
 
 // Export to PDF
