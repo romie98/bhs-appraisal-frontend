@@ -35,7 +35,18 @@ function Header({ onMenuClick, pageTitle }) {
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-gray-700">
-                <User className="w-4 h-4" />
+                {user?.profilePicture ? (
+                  <img 
+                    src={user.profilePicture} 
+                    alt="Profile" 
+                    className="w-8 h-8 rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  <User className="w-4 h-4" />
+                )}
                 <span className="hidden sm:inline">{user?.email || 'User'}</span>
               </div>
               <button

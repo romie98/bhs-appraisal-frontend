@@ -48,13 +48,19 @@ function MarkBook() {
     enabled: !!selectedClassId,
   })
 
-  // Log errors for debugging
-  if (studentsError) {
-    console.error('Error fetching students:', studentsError)
-  }
+  // Log errors for debugging (only in development)
+  useEffect(() => {
+    if (studentsError && import.meta.env.DEV) {
+      console.error('Error fetching students:', studentsError)
+    }
+  }, [studentsError])
   
-  // Debug log
-  console.log('Current state:', { selectedClassId, studentsCount: students.length, students })
+  // Debug log (only in development, and only when state actually changes)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('Current state:', { selectedClassId, studentsCount: students.length })
+    }
+  }, [selectedClassId, students.length])
 
   // Fetch assessments for selected class
   const { data: assessments = [], isLoading: assessmentsLoading } = useQuery({
@@ -73,16 +79,20 @@ function MarkBook() {
   const selectedAssessment = assessments.find(a => a.id === selectedAssessmentId)
 
   // Fetch all scores for the selected class
+  // Only fetch when we have assessments and a selected class
   const { data: allScores = [] } = useQuery({
-    queryKey: ['scores', selectedClassId],
+    queryKey: ['scores', selectedClassId, assessments.length],
     queryFn: async () => {
-      const scoresPromises = (assessments || []).map(assessment => 
+      if (!selectedClassId || !assessments || assessments.length === 0) {
+        return []
+      }
+      const scoresPromises = assessments.map(assessment => 
         scoresApi.getByAssessment(assessment.id, selectedClassId)
       )
       const scoresArrays = await Promise.all(scoresPromises)
       return scoresArrays.flat()
     },
-    enabled: assessments.length > 0 && !!selectedClassId,
+    enabled: !!selectedClassId && assessments.length > 0,
   })
 
   // Filter assessments by type and date

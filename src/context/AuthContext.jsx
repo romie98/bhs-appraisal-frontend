@@ -14,14 +14,19 @@ export function AuthProvider({ children }) {
   const fetchUserInfo = async () => {
     try {
       const userData = await getMe()
-      setUser(userData)
+      // Ensure user data is valid before setting
+      if (userData && typeof userData === 'object') {
+        setUser(userData)
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     } catch (error) {
       console.error("Error fetching user info:", error)
-      // Token is invalid or expired, clear it
+      // Token is invalid or expired (401), immediately clear user
+      setUser(null)
       localStorage.removeItem("auth_token")
       setToken(null)
-      setUser(null)
       setLoading(false)
       // Don't redirect here to avoid loops - let ProtectedRoute handle it
     }

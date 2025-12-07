@@ -16,9 +16,16 @@ function About() {
 
   useEffect(() => {
     const loadedProfile = loadProfile()
-    setProfile(loadedProfile)
-    if (loadedProfile.profilePicture) {
-      setProfilePicturePreview(loadedProfile.profilePicture)
+    if (loadedProfile) {
+      setProfile(loadedProfile)
+      if (loadedProfile.profilePicture) {
+        setProfilePicturePreview(loadedProfile.profilePicture)
+      } else {
+        setProfilePicturePreview(null)
+      }
+    } else {
+      setProfile(getDefaultProfile())
+      setProfilePicturePreview(null)
     }
   }, [])
 

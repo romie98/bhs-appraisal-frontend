@@ -3,7 +3,7 @@
 // The attendance register should use registerApi from markbookApi
 // For now, this is a placeholder - you may need to restore it from git history
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { 
@@ -41,13 +41,19 @@ function AttendanceRegister() {
     enabled: !!selectedClassId,
   })
 
-  // Log errors for debugging
-  if (studentsError) {
-    console.error('Error fetching students:', studentsError)
-  }
+  // Log errors for debugging (only in development)
+  useEffect(() => {
+    if (studentsError && import.meta.env.DEV) {
+      console.error('Error fetching students:', studentsError)
+    }
+  }, [studentsError])
   
-  // Debug log
-  console.log('Current state:', { selectedClassId, studentsCount: students.length, students })
+  // Debug log (only in development, and only when state actually changes)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('Current state:', { selectedClassId, studentsCount: students.length })
+    }
+  }, [selectedClassId, students.length])
 
   // Fetch register records for selected date and class
   const { data: registerRecords = [] } = useQuery({
