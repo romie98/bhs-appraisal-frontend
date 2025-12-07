@@ -15,12 +15,15 @@ export function AuthProvider({ children }) {
     try {
       const userData = await getMe()
       setUser(userData)
+      setLoading(false)
     } catch (error) {
       console.error("Error fetching user info:", error)
-      // Token is invalid, clear it
-      logout()
-    } finally {
+      // Token is invalid or expired, clear it
+      localStorage.removeItem("auth_token")
+      setToken(null)
+      setUser(null)
       setLoading(false)
+      // Don't redirect here to avoid loops - let ProtectedRoute handle it
     }
   }
 

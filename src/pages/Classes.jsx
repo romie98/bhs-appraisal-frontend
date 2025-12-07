@@ -159,7 +159,7 @@ function Classes() {
 
       {/* Class List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedClasses.map((cls) => (
+        {(sortedClasses || []).map((cls) => (
           <div
             key={cls.id}
             className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow cursor-pointer"

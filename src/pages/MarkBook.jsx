@@ -76,7 +76,7 @@ function MarkBook() {
   const { data: allScores = [] } = useQuery({
     queryKey: ['scores', selectedClassId],
     queryFn: async () => {
-      const scoresPromises = assessments.map(assessment => 
+      const scoresPromises = (assessments || []).map(assessment => 
         scoresApi.getByAssessment(assessment.id, selectedClassId)
       )
       const scoresArrays = await Promise.all(scoresPromises)
@@ -113,9 +113,9 @@ function MarkBook() {
 
   // Calculate averages and status for each student
   const studentData = useMemo(() => {
-    return filteredStudents.map(student => {
+    return (filteredStudents || []).map(student => {
       const studentScores = allScores.filter(score => score.student_id === student.id)
-      const assessmentScores = filteredAssessments.map(assessment => {
+      const assessmentScores = (filteredAssessments || []).map(assessment => {
         const score = studentScores.find(s => s.assessment_id === assessment.id)
         return score ? {
           score: score.score,
@@ -325,7 +325,7 @@ function MarkBook() {
       if (toCreate.length > 0) {
         scoresApi.createBulk({
           assessment_id: assessmentId,
-          scores: toCreate.map(({ studentId, score }) => ({
+          scores: (toCreate || []).map(({ studentId, score }) => ({
             assessment_id: assessmentId,
             student_id: studentId,
             score,
@@ -342,7 +342,7 @@ function MarkBook() {
       // Delete scores for empty cells
       if (scoresToDelete.length > 0) {
         Promise.all(
-          scoresToDelete.map(scoreId => scoresApi.delete(scoreId))
+          (scoresToDelete || []).map(scoreId => scoresApi.delete(scoreId))
         ).then(() => {
           queryClient.invalidateQueries({ queryKey: ['scores', selectedClassId] })
           queryClient.invalidateQueries({ queryKey: ['assessments', selectedClassId] })
@@ -445,7 +445,7 @@ function MarkBook() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">-- Select a class --</option>
-              {classes.map((cls) => (
+              {(classes || []).map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name} ({cls.academic_year})
                 </option>
@@ -520,7 +520,7 @@ function MarkBook() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">-- Select a class --</option>
-              {classes.map((cls) => (
+              {(classes || []).map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name} ({cls.academic_year})
                 </option>
@@ -611,7 +611,7 @@ function MarkBook() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">-- Select an assessment --</option>
-              {filteredAssessments.map((assessment) => (
+              {(filteredAssessments || []).map((assessment) => (
                 <option key={assessment.id} value={assessment.id}>
                   {assessment.title} ({assessment.type}) - {new Date(assessment.date_assigned).toLocaleDateString()}
                 </option>
@@ -686,12 +686,12 @@ function MarkBook() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {studentData.map(student => (
+              {(studentData || []).map(student => (
                 <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 sticky left-0 bg-white z-10 font-medium text-gray-900">
                     {student.first_name} {student.last_name}
                   </td>
-                  {filteredAssessments.map(assessment => {
+                  {(filteredAssessments || []).map(assessment => {
                     const scoreData = student.assessmentScores.find(
                       s => s && s.assessmentId === assessment.id
                     )

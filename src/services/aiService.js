@@ -1,5 +1,5 @@
 // AI Service for OpenAI integration
-import { apiUrl, apiFetch } from '../config/api'
+import { buildApiUrl, apiFetch } from '../config/api'
 
 // Helper function for API calls with automatic token injection
 async function apiCall(endpoint, options = {}) {
@@ -261,7 +261,7 @@ export const aiApi = {
    * @returns {string} URL to HTML report
    */
   getAppraisalReportHtmlUrl: (reportId) => {
-    return apiUrl(`/ai/appraisal-report/${reportId}/html`)
+    return buildApiUrl(`/ai/appraisal-report/${reportId}/html`)
   },
 
   /**
@@ -270,7 +270,7 @@ export const aiApi = {
    * @returns {string} URL to PDF report
    */
   getAppraisalReportPdfUrl: (reportId) => {
-    return apiUrl(`/ai/appraisal-report/${reportId}/pdf`)
+    return buildApiUrl(`/ai/appraisal-report/${reportId}/pdf`)
   },
 }
 

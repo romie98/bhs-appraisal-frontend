@@ -112,7 +112,7 @@ function AttendanceRegister() {
       console.log('No students available for attendance')
       return []
     }
-    const attendance = students.map(student => {
+    const attendance = (students || []).map(student => {
       const record = attendanceMap[student.id]
       return {
         ...student,
@@ -145,7 +145,7 @@ function AttendanceRegister() {
   }
 
   const handleMarkAllPresent = async () => {
-    const records = students.map(student => ({
+    const records = (students || []).map(student => ({
       student_id: student.id,
       date: selectedDate,
       status: 'Present',
@@ -243,7 +243,7 @@ function AttendanceRegister() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="">-- Select a class --</option>
-              {classes.map((cls) => (
+              {(classes || []).map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name} ({cls.academic_year})
                 </option>
@@ -307,7 +307,7 @@ function AttendanceRegister() {
               disabled={classesLoading}
             >
               <option value="">-- Select a class --</option>
-              {classes.map((cls) => (
+              {(classes || []).map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name} ({cls.academic_year})
                 </option>
@@ -381,7 +381,7 @@ function AttendanceRegister() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {studentAttendance.map(student => (
+              {(studentAttendance || []).map(student => (
                 <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {student.first_name} {student.last_name}
@@ -496,5 +496,6 @@ function AttendanceRegister() {
 }
 
 export default AttendanceRegister
+
 
 

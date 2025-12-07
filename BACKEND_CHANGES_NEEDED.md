@@ -70,3 +70,4 @@ After making these changes:
 3. Verify login works with the created user
 4. Verify `/auth/me` returns user with full_name field
 
+

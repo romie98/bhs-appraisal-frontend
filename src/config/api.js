@@ -7,7 +7,7 @@ const normalizeUrl = (url) => {
   return url.replace(/^http:\/\//, 'https://');
 };
 
-// Get API URL from multiple sources (runtime priority)
+// Get API base URL from environment variable
 function getApiBaseUrl() {
   // Priority 1: window.__APP_API_URL__ (set by index.html, runtime - used by Vercel)
   if (typeof window !== 'undefined' && window.__APP_API_URL__) {
@@ -16,8 +16,16 @@ function getApiBaseUrl() {
       return normalizeUrl(url);
     }
   }
-  // Priority 2: __APP_API_URL__ (from vite.config.js, build-time replacement)
-  // Vite replaces this with the actual string value at build time
+  // Priority 2: Environment variable (primary source)
+  try {
+    const envUrl = import.meta?.env?.VITE_API_BASE_URL;
+    if (envUrl) {
+      return normalizeUrl(String(envUrl).trim());
+    }
+  } catch (e) {
+    // import.meta might not be available in some contexts
+  }
+  // Priority 3: __APP_API_URL__ (from vite.config.js, build-time replacement)
   try {
     const buildTimeUrl = typeof __APP_API_URL__ !== 'undefined' ? String(__APP_API_URL__).trim() : '';
     if (buildTimeUrl) {
@@ -26,20 +34,15 @@ function getApiBaseUrl() {
   } catch (e) {
     // __APP_API_URL__ might not be defined in some contexts
   }
-  // Fallback: environment variable (for development)
-  try {
-    if (import.meta?.env?.VITE_API_BASE_URL) {
-      return normalizeUrl(import.meta.env.VITE_API_BASE_URL);
-    }
-  } catch (e) {
-    // import.meta might not be available in some contexts
-  }
   return '';
 }
 
 // Get API base URL (normalized to HTTPS)
-// Note: This is computed once at module load, but apiUrl() recomputes at runtime
-export const API_BASE_URL = getApiBaseUrl();
+// This is the base URL constant
+export const apiUrl = getApiBaseUrl();
+
+// Legacy export for compatibility
+export const API_BASE_URL = apiUrl;
 
 /**
  * Get authentication token from localStorage
@@ -55,10 +58,8 @@ function getAuthToken() {
  * @param {string} path - API endpoint path (e.g., "/auth/login")
  * @returns {string} Full URL (always HTTPS)
  */
-export function apiUrl(path) {
-  // Get fresh API base URL at runtime to handle dynamic changes
-  // This ensures window.__APP_API_URL__ is checked on every call
-  const baseUrl = getApiBaseUrl();
+export function buildApiUrl(path) {
+  const baseUrl = apiUrl;
   if (!baseUrl) {
     console.warn('API_BASE_URL is not configured');
     return '';
@@ -77,7 +78,12 @@ export function apiUrl(path) {
  * @returns {Promise<Response>}
  */
 export async function apiFetch(path, options = {}) {
-  const url = apiUrl(path);
+  const baseUrl = apiUrl;
+  if (!baseUrl) {
+    throw new Error('API_BASE_URL is not configured');
+  }
+  const fixed = path.startsWith("/") ? path : `/${path}`;
+  const url = normalizeUrl(`${baseUrl}${fixed}`);
   const token = getAuthToken();
   
   // Prepare headers

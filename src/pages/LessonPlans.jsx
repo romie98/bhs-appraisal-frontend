@@ -134,7 +134,7 @@ function LessonPlans() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPlans.map((plan) => (
+                {(filteredPlans || []).map((plan) => (
                   <tr key={plan.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{plan.title}</div>

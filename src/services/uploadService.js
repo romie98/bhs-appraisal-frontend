@@ -1,6 +1,11 @@
 // Upload service for Supabase file uploads via backend
 import { apiFetch } from "../config/api"
 
+// Get API base URL
+const getApiUrl = () => {
+  return import.meta.env.VITE_API_BASE_URL || '';
+}
+
 /**
  * Upload a file to the backend, which handles Supabase storage
  * @param {File} file - The file to upload
@@ -31,7 +36,8 @@ export async function uploadFile(file, type = "general") {
       endpoint = "/logbook/upload-image"
       break
     default:
-      endpoint = "/upload" // General upload (if exists)
+      // Default to photo-library upload for general files
+      endpoint = "/photo-library/upload"
   }
 
   try {
@@ -162,7 +168,15 @@ export async function uploadLogbookImage(file) {
   formData.append("file", file)
 
   try {
-    const response = await fetch(apiUrl("/logbook/upload-image"), {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      return {
+        success: false,
+        error: "Authentication required. Please login."
+      };
+    }
+
+    const response = await apiFetch("/logbook/upload-image", {
       method: "POST",
       body: formData,
     })

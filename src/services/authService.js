@@ -1,5 +1,5 @@
 // Authentication service
-import { apiUrl, apiFetch } from "../config/api"
+// Note: Using direct fetch with import.meta.env.VITE_API_BASE_URL for auth endpoints
 
 /**
  * Login with email and password
@@ -15,7 +15,12 @@ export async function login(data) {
   formData.append("username", email) // OAuth2 uses "username" field for email
   formData.append("password", password)
 
-  const response = await fetch(apiUrl("/auth/login"), {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -38,7 +43,12 @@ export async function login(data) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function loginJson(email, password) {
-  const response = await fetch(apiUrl("/auth/login-json"), {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/login-json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -62,7 +72,12 @@ export async function loginJson(email, password) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function register(data) {
-  const response = await fetch(apiUrl("/auth/register"), {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -92,7 +107,12 @@ export async function signup(email, password) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function loginWithGoogle(googleToken) {
-  const response = await fetch(apiUrl("/auth/google"), {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/google`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -114,12 +134,30 @@ export async function loginWithGoogle(googleToken) {
  * @returns {Promise<{id: string, email: string, created_at: string}>}
  */
 export async function getMe() {
-  const response = await apiFetch("/auth/me", {
+  const token = localStorage.getItem("auth_token");
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/me`, {
     method: "GET",
-    // Authorization header will be added automatically by apiFetch helper
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Token is invalid, clear it
+      localStorage.removeItem("auth_token");
+      throw new Error("Authentication failed. Please login again.");
+    }
     const error = await response.json().catch(() => ({ detail: "Failed to get user info" }))
     throw new Error(error.detail || `HTTP error! status: ${response.status}`)
   }
@@ -132,9 +170,15 @@ export async function getMe() {
  * @deprecated Use getMe() instead - token is handled automatically
  */
 export async function getCurrentUser(token) {
-  const response = await fetch(apiUrl("/auth/me"), {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (!apiUrl) {
+    throw new Error("API_BASE_URL is not configured");
+  }
+
+  const response = await fetch(`${apiUrl}/auth/me`, {
     method: "GET",
     headers: {
+      "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
     },
   })
