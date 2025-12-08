@@ -234,11 +234,32 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
         isolation: 'isolate'
       }}
     >
-      {/* Thumbnail/Icon - Small window */}
-      <div className="flex items-center justify-center w-full h-32 bg-gray-50 rounded-xl mb-3">
-        <div className="text-gray-400">
-          {getFileIcon(evidence.fileName)}
-        </div>
+      {/* Thumbnail/Preview */}
+      <div className="w-full h-40 bg-gray-50 rounded-xl mb-3 overflow-hidden relative">
+        {evidence.supabase_url ? (
+          <>
+            <img
+              src={evidence.supabase_url}
+              alt={evidence.fileName || evidence.title || 'Evidence preview'}
+              className="w-full h-40 object-cover rounded"
+              onError={(e) => {
+                // Hide image and show icon fallback
+                e.target.style.display = 'none'
+                const fallback = e.target.nextElementSibling
+                if (fallback) {
+                  fallback.style.display = 'flex'
+                }
+              }}
+            />
+            <div className="hidden items-center justify-center w-full h-40 text-gray-400 absolute inset-0">
+              {getFileIcon(evidence.fileName)}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center w-full h-40 text-gray-400">
+            {getFileIcon(evidence.fileName)}
+          </div>
+        )}
       </div>
 
       {/* Title */}
@@ -285,12 +306,20 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
         {evidence.supabase_url && (
-          <button
-            onClick={() => setOpen(true)}
-            className="bg-sky-600 text-white px-3 py-1 rounded-md text-sm hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-          >
-            View
-          </button>
+          <>
+            <button
+              onClick={() => setOpen(true)}
+              className="bg-sky-600 text-white px-3 py-1 rounded-md text-sm hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+            >
+              Preview
+            </button>
+            <button
+              onClick={() => window.open(evidence.supabase_url, "_blank")}
+              className="text-blue-600 underline text-xs hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+            >
+              View
+            </button>
+          </>
         )}
         {evidence.supabase_url && (
           <a
