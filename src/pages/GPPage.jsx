@@ -35,10 +35,25 @@ function GPPage({ gpCode }) {
     const evidenceMap = {}
     
     subsections.forEach(subsection => {
+      // Construct current subsection code in format "GP 1.1"
+      const currentSubsection = `${gp} ${subsection.subsection}`.trim()
+      
       // Filter evidence by GP and subsection
+      // Also include items with gp_section === null to show existing uploads
       // Backend may return gp as "GP 1" or "GP1", normalize for comparison
       const evidence = allEvidence.filter(item => {
-        const itemGP = item.gp || item.gp_section || ''
+        // Show items with null gp_section in all sections (temporary measure)
+        if (item.gp_section === null || item.gp_section === undefined) {
+          return true
+        }
+        
+        // Match by gp_section (format: "GP 1.1")
+        if (item.gp_section === currentSubsection) {
+          return true
+        }
+        
+        // Fallback: match by GP and subsection separately
+        const itemGP = item.gp || ''
         const normalizedItemGP = itemGP.trim()
         const normalizedGP = gp.trim()
         return normalizedItemGP === normalizedGP && item.subsection === subsection.subsection

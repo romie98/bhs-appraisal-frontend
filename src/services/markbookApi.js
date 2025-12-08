@@ -614,12 +614,36 @@ export const photoLibraryApi = {
 }
 
 // Evidence API
+// Helper to clean Supabase URLs (remove trailing '?')
+const cleanSupabaseUrls = (data) => {
+  if (Array.isArray(data)) {
+    return data.map(item => {
+      if (item.supabase_url && typeof item.supabase_url === 'string') {
+        return { ...item, supabase_url: item.supabase_url.replace(/\?+$/, '') }
+      }
+      return item
+    })
+  }
+  if (data && typeof data === 'object') {
+    if (data.supabase_url && typeof data.supabase_url === 'string') {
+      return { ...data, supabase_url: data.supabase_url.replace(/\?+$/, '') }
+    }
+  }
+  return data
+}
+
 export const evidenceApi = {
   // List all evidence (GET /evidence/)
-  list: () => apiCall('/evidence/'),
+  list: async () => {
+    const data = await apiCall('/evidence/')
+    return cleanSupabaseUrls(data)
+  },
   
   // Get specific evidence by ID (GET /evidence/{id})
-  getById: (id) => apiCall(`/evidence/${id}`),
+  getById: async (id) => {
+    const data = await apiCall(`/evidence/${id}`)
+    return cleanSupabaseUrls(data)
+  },
   
   // Upload evidence (POST /evidence/upload)
   upload: async (file, metadata = {}) => {
@@ -630,7 +654,9 @@ export const evidenceApi = {
     // Add metadata fields if provided
     if (metadata.gp) formData.append('gp', metadata.gp)
     if (metadata.subsection) formData.append('subsection', metadata.subsection)
+    if (metadata.gp_section) formData.append('gp_section', metadata.gp_section) // Format: "GP 1.1"
     if (metadata.title) formData.append('title', metadata.title)
+    if (metadata.description) formData.append('description', metadata.description)
     if (metadata.notes) formData.append('notes', metadata.notes)
     if (metadata.selectedEvidence) {
       formData.append('selectedEvidence', JSON.stringify(metadata.selectedEvidence))
@@ -730,6 +756,12 @@ export const evidenceApi = {
       }
       
       const json = JSON.parse(rawText)
+      
+      // Fix Supabase URLs by trimming trailing '?'
+      if (json.supabase_url && typeof json.supabase_url === 'string') {
+        json.supabase_url = json.supabase_url.replace(/\?+$/, '')
+      }
+      
       console.log("JSON PARSED:", json);
       console.log("=== API DEBUG END ===");
       return json

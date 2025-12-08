@@ -80,10 +80,16 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     setShowDeleteConfirm(false)
   }
 
+  // Helper to clean Supabase URL (remove trailing '?')
+  const cleanSupabaseUrl = (url) => {
+    if (!url || typeof url !== 'string') return url
+    return url.replace(/\?+$/, '')
+  }
+
   // Render inline preview for accordion view
   const renderInlinePreview = () => {
     const fileName = evidence.fileName || ''
-    const fileUrl = evidence.supabase_url
+    const fileUrl = cleanSupabaseUrl(evidence.supabase_url)
 
     if (!fileUrl) return null
 
@@ -125,7 +131,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
   // Get preview element based on file type
   const getPreviewElement = () => {
     const fileName = evidence.fileName || ''
-    const fileUrl = evidence.supabase_url
+    const fileUrl = cleanSupabaseUrl(evidence.supabase_url)
 
     if (!fileUrl) {
       return (
@@ -239,7 +245,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
         {evidence.supabase_url ? (
           <>
             <img
-              src={evidence.supabase_url}
+              src={cleanSupabaseUrl(evidence.supabase_url)}
               alt={evidence.fileName || evidence.title || 'Evidence preview'}
               className="w-full h-40 object-cover rounded"
               onError={(e) => {
@@ -314,7 +320,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
               Preview
             </button>
             <button
-              onClick={() => window.open(evidence.supabase_url, "_blank")}
+              onClick={() => window.open(cleanSupabaseUrl(evidence.supabase_url), "_blank")}
               className="text-blue-600 underline text-xs hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
             >
               View
@@ -323,7 +329,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
         )}
         {evidence.supabase_url && (
           <a
-            href={evidence.supabase_url}
+            href={cleanSupabaseUrl(evidence.supabase_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-2 py-1"
@@ -334,7 +340,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
         )}
         {evidence.supabase_url && (
           <a
-            href={evidence.supabase_url}
+            href={cleanSupabaseUrl(evidence.supabase_url)}
             download
             className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
           >
@@ -443,7 +449,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
               <div className="flex items-center gap-2">
                 {evidence.supabase_url && (
                   <a
-                    href={evidence.supabase_url}
+                    href={cleanSupabaseUrl(evidence.supabase_url)}
                     download
                     className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-3 py-1"
                   >

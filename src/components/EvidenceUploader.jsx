@@ -105,11 +105,16 @@ function EvidenceUploader({ schema, onSave }) {
 
       const file = files[0]
       
+      // Construct gp_section in format "GP 1.1" (combining GP and subsection)
+      const gpSection = `${gp} ${subsection}`.trim()
+      
       // Upload to backend API
       const metadata = {
         gp: gp,
         subsection: subsection,
+        gp_section: gpSection, // Format: "GP 1.1"
         title: title,
+        description: notes, // Use notes as description
         selectedEvidence: selectedEvidence,
         notes: notes,
       }
