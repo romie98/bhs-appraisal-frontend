@@ -70,16 +70,18 @@ export async function uploadFile(file, type = "general") {
     }
   }
   
+  // Handle photo upload separately with direct fetch (like evidence)
+  if (type === "photo") {
+    // Use the uploadPhoto function we already defined
+    return await uploadPhoto(file);
+  }
+  
   // Map other upload types to backend endpoints
   let endpoint = ""
   switch (type) {
     case "lesson-plan":
       endpoint = "/lesson-plans/upload"
       // Lesson plans need title - handled separately
-      break
-    case "photo":
-      endpoint = "/photo-library/upload"
-      // teacher_id removed - backend gets it from JWT token
       break
     case "logbook":
       endpoint = "/logbook/upload-image"
@@ -175,9 +177,44 @@ export async function uploadPhoto(file) {
   formData.append("file", file)
   // teacher_id removed - backend gets it from JWT token
 
+  // Get API URL - ensure we use window.__APP_API_URL__ (Railway backend)
+  let apiUrl = window.__APP_API_URL__ || '';
+  
+  // Check if it's still a placeholder or invalid
+  if (!apiUrl || apiUrl === '%VITE_API_BASE_URL%' || apiUrl.includes('%')) {
+    // Fallback to environment variable if window variable is not set
+    try {
+      apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+    } catch (e) {
+      apiUrl = '';
+    }
+  }
+  
+  if (!apiUrl) {
+    return {
+      success: false,
+      error: 'API_BASE_URL is not configured. window.__APP_API_URL__ is not set.'
+    };
+  }
+  
+  // Remove trailing slash from apiUrl if present
+  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+  const fullUrl = `${cleanBase}/photo-library/upload`;
+  
+  console.log("=== PHOTO UPLOAD (uploadService) ===");
+  console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
+  console.log("apiUrl =", apiUrl);
+  console.log("cleanBase =", cleanBase);
+  console.log("UPLOAD URL:", fullUrl);
+  
+  const token = localStorage.getItem('auth_token');
+  
   try {
-    const response = await apiFetch("/photo-library/upload", {
+    const response = await fetch(fullUrl, {
       method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
       body: formData,
     })
 
@@ -191,11 +228,18 @@ export async function uploadPhoto(file) {
 
     const data = await response.json()
     
+    // Clean Supabase URLs by trimming trailing '?'
+    if (data.supabase_url && typeof data.supabase_url === 'string') {
+      data.supabase_url = data.supabase_url.replace(/\?+$/, '')
+    }
+    
     return {
       success: true,
-      path: data.file_path,
-      file_url: data.file_url,
-      signed_url: data.file_url,
+      path: data.file_path || data.supabase_path,
+      file_url: data.file_url || data.supabase_url,
+      signed_url: data.file_url || data.supabase_url,
+      supabase_url: data.supabase_url || data.file_url,
+      supabase_path: data.supabase_path,
       id: data.id,
       ...data
     }

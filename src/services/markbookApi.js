@@ -527,18 +527,59 @@ export const photoLibraryApi = {
     formData.append('file', file)
     // teacher_id removed - backend gets it from JWT token
 
-      const apiUrl = window.__APP_API_URL__ || ''
-      const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-      const fullUrl = `${cleanBase}/photo-library/upload`
-    console.log("CALLING:", fullUrl);
-    console.log("METHOD: POST");
+    // Get API URL - ensure we use window.__APP_API_URL__ (Railway backend)
+    let apiUrl = window.__APP_API_URL__ || '';
     
+    // Check if it's still a placeholder or invalid
+    if (!apiUrl || apiUrl === '%VITE_API_BASE_URL%' || apiUrl.includes('%')) {
+      // Fallback to environment variable if window variable is not set
+      try {
+        apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+      } catch (e) {
+        apiUrl = '';
+      }
+    }
+    
+    if (!apiUrl) {
+      const errorMsg = 'API_BASE_URL is not configured. window.__APP_API_URL__ is not set.';
+      console.error(errorMsg);
+      console.error('window.__APP_API_URL__ =', window.__APP_API_URL__);
+      throw new Error(errorMsg);
+    }
+    
+    // Remove trailing slash from apiUrl if present
+    const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+    const fullUrl = `${cleanBase}/photo-library/upload`;
+    
+    console.log("=== PHOTO UPLOAD DEBUG ===");
+    console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
+    console.log("Final apiUrl =", apiUrl);
+    console.log("cleanBase =", cleanBase);
+    console.log("UPLOAD URL:", fullUrl);
+    console.log("METHOD: POST");
+    console.log("Expected backend URL: https://bhs-appraisal-backend-production.up.railway.app/photo-library/upload");
+    
+    // Get auth token
     const token = localStorage.getItem('auth_token');
-    console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
+    if (!token) {
+      throw new Error('Authentication token not found. Please login.');
+    }
+    
+    const headers = {
+      "Authorization": `Bearer ${token}`
+    };
+    // DO NOT set Content-Type for FormData - browser will set it automatically with boundary
 
     try {
-      const response = await apiFetch('/photo-library/upload', {
+      console.log("Making fetch request to:", fullUrl);
+      console.log("Headers:", headers);
+      console.log("FormData keys:", Array.from(formData.keys()));
+      console.log("File name:", file?.name);
+      console.log("File size:", file?.size);
+      
+      const response = await fetch(fullUrl, {
         method: 'POST',
+        headers: headers,
         body: formData,
       })
 
@@ -593,6 +634,12 @@ export const photoLibraryApi = {
       }
 
       const json = JSON.parse(rawText);
+      
+      // Clean Supabase URLs by trimming trailing '?'
+      if (json.supabase_url && typeof json.supabase_url === 'string') {
+        json.supabase_url = json.supabase_url.replace(/\?+$/, '')
+      }
+      
       console.log("JSON PARSED:", json);
       console.log("=== API DEBUG END ===");
       return json
