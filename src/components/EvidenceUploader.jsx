@@ -116,14 +116,15 @@ function EvidenceUploader({ schema, onSave }) {
 
       const result = await evidenceApi.upload(file, metadata)
 
-      // Call onSave callback with backend response
-      if (onSave) {
-        onSave(result)
-      }
-
       // Show success
       setShowSuccess(true)
       setTimeout(() => setShowSuccess(false), 3000)
+
+      // Call onSave callback with backend response AFTER showing success
+      // This allows parent to refetch evidence list
+      if (onSave) {
+        onSave(result)
+      }
 
       // Reset form
       setTitle('')

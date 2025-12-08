@@ -3,13 +3,16 @@ import { ChevronDown, ChevronUp, Plus, FileText, X } from 'lucide-react'
 import EvidenceCard from './EvidenceCard'
 import EvidenceUploader from './EvidenceUploader'
 
-function GPAccordion({ subsection, title, description, evidenceItems = [], schema, onEdit, onDelete }) {
+function GPAccordion({ subsection, title, description, evidenceItems = [], schema, onEdit, onDelete, onEvidenceSaved }) {
   const [isOpen, setIsOpen] = useState(false)
   const [showUploader, setShowUploader] = useState(false)
 
-  const handleEvidenceSaved = () => {
+  const handleEvidenceSaved = (result) => {
     setShowUploader(false)
-    // The parent will update via event listener
+    // Call parent callback to trigger refetch
+    if (onEvidenceSaved) {
+      onEvidenceSaved(result)
+    }
   }
 
   return (
