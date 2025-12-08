@@ -1,7 +1,6 @@
 import { FileText, Calendar, ExternalLink, Download, Edit, Trash2, Image, File, FileCode, FileVideo, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { buildApiUrl } from '../config/api'
 
 // Helper functions for file type detection
 const isImage = (n) => /\.(jpg|jpeg|png|gif|webp)$/i.test(n)
@@ -81,50 +80,38 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     setShowDeleteConfirm(false)
   }
 
-  // Google Drive integration removed - files are stored in backend
   // Render inline preview for accordion view
   const renderInlinePreview = () => {
     const fileName = evidence.fileName || ''
-    const downloadLink = evidence.file_url || evidence.localPath
+    const fileUrl = evidence.supabase_url
+
+    if (!fileUrl) return null
 
     // IMAGE inline preview
     if (isImage(fileName)) {
-      const imageSrc = downloadLink || evidence.localPath
-      if (imageSrc) {
-        return (
-          <img
-            src={imageSrc}
-            alt="preview"
-            className="w-full object-contain rounded-xl mx-auto shadow-lg"
-            loading="lazy"
-            style={{ 
-              maxHeight: '80vh',
-              minHeight: '500px',
-              minWidth: '600px',
-              width: 'auto',
-              height: 'auto',
-              display: 'block'
-            }}
-          />
-        )
-      }
+      return (
+        <img
+          src={fileUrl}
+          alt="preview"
+          className="w-full object-contain rounded-xl mx-auto shadow-lg"
+          loading="lazy"
+          style={{ 
+            maxHeight: '80vh',
+            minHeight: '500px',
+            minWidth: '600px',
+            width: 'auto',
+            height: 'auto',
+            display: 'block'
+          }}
+        />
+      )
     }
 
-    // PDF Files (stored in backend)
-    if (evidence.localPath && /\.(pdf)$/i.test(evidence.localPath)) {
-      let localUrl = evidence.localPath
-      
-      if (!localUrl.startsWith('http') && !localUrl.startsWith('file://')) {
-        if (localUrl.startsWith('/mnt/data')) {
-          localUrl = buildApiUrl(`/api/files${localUrl}`)
-        } else if (localUrl.startsWith('/')) {
-          localUrl = buildApiUrl(`/api/files${localUrl}`)
-        }
-      }
-      
+    // PDF Files
+    if (/\.(pdf)$/i.test(fileName)) {
       return (
         <iframe
-          src={localUrl}
+          src={fileUrl}
           className="w-full rounded-xl border-0"
           style={{ height: '80vh', minHeight: '600px' }}
           title={`Preview of ${evidence.title || fileName}`}
@@ -138,26 +125,25 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
   // Get preview element based on file type
   const getPreviewElement = () => {
     const fileName = evidence.fileName || ''
-    const downloadLink = evidence.file_url || evidence.localPath
+    const fileUrl = evidence.supabase_url
 
-    // If file is PDF or document (stored in backend)
-    if (evidence.localPath && /\.(pdf)$/i.test(evidence.localPath)) {
-      // Transform local path to URL
-      let localUrl = evidence.localPath
-      
-      if (!localUrl.startsWith('http') && !localUrl.startsWith('file://')) {
-        // Transform /mnt/data paths to server endpoint
-        if (localUrl.startsWith('/mnt/data')) {
-          localUrl = buildApiUrl(`/api/files${localUrl}`)
-        } else if (localUrl.startsWith('/')) {
-          // Absolute path - use as is or with API prefix
-          localUrl = buildApiUrl(`/api/files${localUrl}`)
-        }
-      }
-      
+    if (!fileUrl) {
+      return (
+        <div className="w-full h-[85vh] flex items-center justify-center">
+          <div className="text-center">
+            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">No preview available</p>
+            <p className="text-sm text-gray-500 mt-2">File URL not available</p>
+          </div>
+        </div>
+      )
+    }
+
+    // PDF preview
+    if (/\.(pdf)$/i.test(fileName)) {
       return (
         <iframe
-          src={localUrl}
+          src={fileUrl}
           className="w-full h-[85vh] rounded-xl border-0"
           title={`Preview of ${evidence.title || fileName}`}
         />
@@ -166,35 +152,32 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
 
     // IMAGE preview
     if (isImage(fileName)) {
-      const imageSrc = downloadLink || evidence.localPath
-      if (imageSrc) {
-        return (
-          <img
-            src={imageSrc}
-            className="rounded-xl shadow-lg"
-            alt={evidence.title || fileName || 'Preview'}
-            loading="eager"
-            style={{
-              width: 'auto',
-              height: 'auto',
-              maxWidth: '92vw',
-              maxHeight: '88vh',
-              display: 'block',
-              pointerEvents: 'auto',
-              userSelect: 'auto',
-              cursor: 'default',
-              objectFit: 'contain'
-            }}
-          />
-        )
-      }
+      return (
+        <img
+          src={fileUrl}
+          className="rounded-xl shadow-lg"
+          alt={evidence.title || fileName || 'Preview'}
+          loading="eager"
+          style={{
+            width: 'auto',
+            height: 'auto',
+            maxWidth: '92vw',
+            maxHeight: '88vh',
+            display: 'block',
+            pointerEvents: 'auto',
+            userSelect: 'auto',
+            cursor: 'default',
+            objectFit: 'contain'
+          }}
+        />
+      )
     }
 
     // VIDEO preview
-    if (isVideo(fileName) && downloadLink) {
+    if (isVideo(fileName)) {
       return (
         <video
-          src={downloadLink}
+          src={fileUrl}
           controls
           className="w-full max-h-[85vh] rounded-xl"
         >
@@ -204,11 +187,11 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     }
 
     // AUDIO preview
-    if (isAudio(fileName) && downloadLink) {
+    if (isAudio(fileName)) {
       return (
         <div className="w-full flex items-center justify-center py-8">
           <audio
-            src={downloadLink}
+            src={fileUrl}
             controls
             className="w-full max-w-md"
           >
@@ -225,16 +208,14 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
           <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 font-medium">No preview available</p>
           <p className="text-sm text-gray-500 mt-2">
-            {downloadLink && (
-              <a
-                href={downloadLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sky-600 hover:text-sky-700 underline"
-              >
-                Open file in new tab
-              </a>
-            )}
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-600 hover:text-sky-700 underline"
+            >
+              Open file in new tab
+            </a>
           </p>
         </div>
       </div>
@@ -303,7 +284,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-        {(evidence.file_url || evidence.localPath) && (
+        {evidence.supabase_url && (
           <button
             onClick={() => setOpen(true)}
             className="bg-sky-600 text-white px-3 py-1 rounded-md text-sm hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
@@ -311,9 +292,9 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
             View
           </button>
         )}
-        {(evidence.file_url || evidence.localPath) && (
+        {evidence.supabase_url && (
           <a
-            href={evidence.file_url || evidence.localPath}
+            href={evidence.supabase_url}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-2 py-1"
@@ -322,9 +303,9 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
             Open
           </a>
         )}
-        {(evidence.file_url || evidence.localPath) && (
+        {evidence.supabase_url && (
           <a
-            href={evidence.file_url || evidence.localPath}
+            href={evidence.supabase_url}
             download
             className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
           >
@@ -431,9 +412,9 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {(evidence.file_url || evidence.localPath) && (
+                {evidence.supabase_url && (
                   <a
-                    href={evidence.file_url || evidence.localPath}
+                    href={evidence.supabase_url}
                     download
                     className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-3 py-1"
                   >

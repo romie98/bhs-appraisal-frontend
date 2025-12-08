@@ -71,3 +71,4 @@ After making these changes:
 4. Verify `/auth/me` returns user with full_name field
 
 
+

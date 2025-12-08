@@ -11,7 +11,6 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { photoLibraryApi } from '../services/markbookApi'
-import { buildApiUrl } from '../config/api'
 
 // GP subsection names mapping
 const GP_SUBSECTION_NAMES = {
@@ -405,7 +404,7 @@ function Upload() {
                 >
                   <div className="bg-gray-200 aspect-video overflow-hidden">
                     <img
-                      src={buildApiUrl(photo.file_path.startsWith('/') ? photo.file_path : `/${photo.file_path}`)}
+                      src={photo.supabase_url || ''}
                       alt="Photo evidence"
                       className="w-full h-full object-cover"
                       onError={(e) => {
