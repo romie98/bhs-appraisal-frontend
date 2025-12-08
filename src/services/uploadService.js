@@ -18,12 +18,61 @@ export async function uploadFile(file, type = "general") {
 
   let endpoint = ""
   
-  // Map upload types to backend endpoints
+  // Handle evidence upload separately with direct fetch
+  if (type === "evidence") {
+    const apiUrl = window.__APP_API_URL__ || '';
+    if (!apiUrl) {
+      return {
+        success: false,
+        error: 'API_BASE_URL is not configured'
+      };
+    }
+    const cleanApiUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+    const fullUrl = `${cleanApiUrl}/evidence/upload`;
+    const token = localStorage.getItem('auth_token');
+    
+    console.log("=== EVIDENCE UPLOAD (uploadService) ===");
+    console.log("apiUrl =", apiUrl);
+    console.log("cleanApiUrl =", cleanApiUrl);
+    console.log("fullUrl =", fullUrl);
+    
+    try {
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Upload failed' }))
+        return {
+          success: false,
+          error: error.detail || error.error || `HTTP error! status: ${response.status}`
+        }
+      }
+      
+      const data = await response.json()
+      return {
+        success: true,
+        path: data.path || data.file_path,
+        file_url: data.file_url || data.signed_url || data.url,
+        signed_url: data.file_url || data.signed_url || data.url,
+        supabase_url: data.supabase_url || data.file_url || data.signed_url || data.url,
+        ...data
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || "Network error during upload"
+      }
+    }
+  }
+  
+  // Map other upload types to backend endpoints
+  let endpoint = ""
   switch (type) {
-    case "evidence":
-      endpoint = "/evidence/upload"
-      // teacher_id removed - backend gets it from JWT token
-      break
     case "lesson-plan":
       endpoint = "/lesson-plans/upload"
       // Lesson plans need title - handled separately

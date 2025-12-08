@@ -636,19 +636,8 @@ export const evidenceApi = {
       formData.append('selectedEvidence', JSON.stringify(metadata.selectedEvidence))
     }
     
-    // Get API URL and construct full URL
-    let apiUrl = window.__APP_API_URL__ || '';
-    
-    // Check if it's still a placeholder or invalid
-    if (!apiUrl || apiUrl === '%VITE_API_BASE_URL%' || apiUrl.includes('%')) {
-      // Fallback to environment variable if window variable is not set
-      try {
-        apiUrl = import.meta.env.VITE_API_BASE_URL || '';
-      } catch (e) {
-        apiUrl = '';
-      }
-    }
-    
+    // Get API URL - ensure no trailing slash
+    const apiUrl = window.__APP_API_URL__ || '';
     if (!apiUrl) {
       const errorMsg = 'API_BASE_URL is not configured. window.__APP_API_URL__ is not set.';
       console.error(errorMsg);
@@ -656,32 +645,25 @@ export const evidenceApi = {
       throw new Error(errorMsg);
     }
     
-    // Validate URL format
-    try {
-      new URL(apiUrl);
-    } catch (e) {
-      const errorMsg = `Invalid API URL: ${apiUrl}`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
+    // Remove trailing slash from apiUrl if present
+    const cleanApiUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+    const fullUrl = `${cleanApiUrl}/evidence/upload`;
     
-    const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-    const fullUrl = `${cleanBase}/evidence/upload`;
     console.log("=== EVIDENCE UPLOAD DEBUG ===");
     console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
-    console.log("Final apiUrl =", apiUrl);
-    console.log("cleanBase =", cleanBase);
-    console.log("FETCH URL:", fullUrl);
+    console.log("apiUrl (cleaned) =", cleanApiUrl);
+    console.log("Full URL =", fullUrl);
     console.log("METHOD: POST");
-    console.log("Expected full URL: https://bhs-appraisal-backend-production.up.railway.app/evidence/upload");
-    console.log("URLs match:", fullUrl === "https://bhs-appraisal-backend-production.up.railway.app/evidence/upload");
     
     // Get auth token
     const token = localStorage.getItem('auth_token');
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (!token) {
+      throw new Error('Authentication token not found. Please login.');
     }
+    
+    const headers = {
+      "Authorization": `Bearer ${token}`
+    };
     // DO NOT set Content-Type for FormData - browser will set it automatically with boundary
     
     try {
@@ -692,9 +674,9 @@ export const evidenceApi = {
       console.log("File size:", file?.size);
       
       const response = await fetch(fullUrl, {
-        method: 'POST',
+        method: "POST",
         headers: headers,
-        body: formData,
+        body: formData
       }).catch((fetchError) => {
         console.error("=== FETCH ERROR ===");
         console.error("URL:", fullUrl);
@@ -715,6 +697,18 @@ export const evidenceApi = {
         console.error("URL:", fullUrl);
         console.error("Response headers:", Object.fromEntries(response.headers.entries()));
         console.error("Response body (first 500 chars):", rawText.substring(0, 500));
+        
+        // Handle 404 specifically - endpoint doesn't exist on backend
+        if (response.status === 404) {
+          const errorMsg = `Backend endpoint /evidence/upload not found (404). The backend needs to implement POST /evidence/upload endpoint.`;
+          console.error("❌ ENDPOINT NOT IMPLEMENTED:", errorMsg);
+          console.error("Available upload endpoints:");
+          console.error("  - POST /photo-library/upload");
+          console.error("  - POST /lesson-plans/upload");
+          console.error("  - POST /logbook/upload-image");
+          console.error("  - POST /evidence/upload (NOT IMPLEMENTED)");
+          throw new Error(errorMsg);
+        }
         
         if (contentType.includes('application/json')) {
           try {
