@@ -6,7 +6,15 @@ import { AuthProvider } from './context/AuthContext'
 import App from './App.jsx'
 import './index.css'
 
-console.log("API URL =", window.__APP_API_URL__);
+// Log API URL configuration for debugging
+console.log("=== API CONFIGURATION ===");
+console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
+try {
+  console.log("import.meta.env.VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+} catch (e) {
+  console.log("import.meta.env.VITE_API_BASE_URL = (not available)");
+}
+console.log("=========================");
 
 const queryClient = new QueryClient({
   defaultOptions: {

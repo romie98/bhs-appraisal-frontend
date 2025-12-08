@@ -637,27 +637,69 @@ export const evidenceApi = {
     }
     
     // Get API URL and construct full URL
-    const apiUrl = window.__APP_API_URL__ || '';
-    if (!apiUrl) {
-      throw new Error('API_BASE_URL is not configured');
+    let apiUrl = window.__APP_API_URL__ || '';
+    
+    // Check if it's still a placeholder or invalid
+    if (!apiUrl || apiUrl === '%VITE_API_BASE_URL%' || apiUrl.includes('%')) {
+      // Fallback to environment variable if window variable is not set
+      try {
+        apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+      } catch (e) {
+        apiUrl = '';
+      }
     }
+    
+    if (!apiUrl) {
+      const errorMsg = 'API_BASE_URL is not configured. window.__APP_API_URL__ is not set.';
+      console.error(errorMsg);
+      console.error('window.__APP_API_URL__ =', window.__APP_API_URL__);
+      throw new Error(errorMsg);
+    }
+    
+    // Validate URL format
+    try {
+      new URL(apiUrl);
+    } catch (e) {
+      const errorMsg = `Invalid API URL: ${apiUrl}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
     const fullUrl = `${cleanBase}/evidence/upload`;
+    console.log("=== EVIDENCE UPLOAD DEBUG ===");
+    console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
+    console.log("Final apiUrl =", apiUrl);
     console.log("FETCH URL:", fullUrl);
     console.log("METHOD: POST");
     
     // Get auth token
     const token = localStorage.getItem('auth_token');
-    const headers = new Headers();
+    const headers = {};
     if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+      headers['Authorization'] = `Bearer ${token}`;
     }
+    // DO NOT set Content-Type for FormData - browser will set it automatically with boundary
     
     try {
+      console.log("Making fetch request to:", fullUrl);
+      console.log("Headers:", headers);
+      console.log("FormData keys:", Array.from(formData.keys()));
+      console.log("File name:", file?.name);
+      console.log("File size:", file?.size);
+      
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: headers,
         body: formData,
+      }).catch((fetchError) => {
+        console.error("=== FETCH ERROR ===");
+        console.error("URL:", fullUrl);
+        console.error("Error type:", fetchError.name);
+        console.error("Error message:", fetchError.message);
+        console.error("Full error:", fetchError);
+        console.error("=== FETCH ERROR END ===");
+        throw new Error(`Network error: ${fetchError.message}. URL: ${fullUrl}`);
       })
       
       const contentType = response.headers.get('content-type') || ''

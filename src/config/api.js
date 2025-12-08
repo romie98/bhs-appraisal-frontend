@@ -1,6 +1,23 @@
 // Global API configuration
 // Get API base URL from window.__APP_API_URL__ (set by index.html)
-const apiUrl = window.__APP_API_URL__ || '';
+// Fallback to environment variable if window variable is not set or is a placeholder
+function getApiUrl() {
+  let url = window.__APP_API_URL__ || '';
+  
+  // Check if it's still a placeholder or invalid
+  if (!url || url === '%VITE_API_BASE_URL%' || url.includes('%')) {
+    // Fallback to environment variable
+    try {
+      url = import.meta.env.VITE_API_BASE_URL || '';
+    } catch (e) {
+      url = '';
+    }
+  }
+  
+  return url;
+}
+
+const apiUrl = getApiUrl();
 
 // Legacy export for compatibility
 export const API_BASE_URL = apiUrl;
