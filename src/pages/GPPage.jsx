@@ -39,24 +39,48 @@ function GPPage({ gpCode }) {
       const currentSubsection = `${gp} ${subsection.subsection}`.trim()
       
       // Filter evidence by GP and subsection
-      // Also include items with gp_section === null to show existing uploads
+      // Also include items with gp_section === null if they match this GP and subsection
       // Backend may return gp as "GP 1" or "GP1", normalize for comparison
       const evidence = allEvidence.filter(item => {
-        // Show items with null gp_section in all sections (temporary measure)
-        if (item.gp_section === null || item.gp_section === undefined) {
-          return true
-        }
-        
-        // Match by gp_section (format: "GP 1.1")
+        // Match by gp_section (format: "GP 1.1") - primary method
         if (item.gp_section === currentSubsection) {
           return true
         }
         
-        // Fallback: match by GP and subsection separately
+        // For items with null gp_section, match by GP and subsection separately
+        // Only show if BOTH GP and subsection are present and match
+        if (item.gp_section === null || item.gp_section === undefined) {
+          const itemGP = item.gp || ''
+          const itemSubsection = item.subsection || ''
+          
+          // Require both GP and subsection to be present
+          if (!itemGP || !itemSubsection) {
+            return false
+          }
+          
+          const normalizedItemGP = itemGP.trim()
+          const normalizedGP = gp.trim()
+          const normalizedItemSubsection = itemSubsection.trim()
+          const normalizedSubsection = subsection.subsection.trim()
+          
+          // Only show if GP matches AND subsection matches exactly
+          return normalizedItemGP === normalizedGP && normalizedItemSubsection === normalizedSubsection
+        }
+        
+        // Fallback: match by GP and subsection separately (for backward compatibility)
         const itemGP = item.gp || ''
+        const itemSubsection = item.subsection || ''
+        
+        if (!itemGP || !itemSubsection) {
+          return false
+        }
+        
         const normalizedItemGP = itemGP.trim()
         const normalizedGP = gp.trim()
-        return normalizedItemGP === normalizedGP && item.subsection === subsection.subsection
+        const normalizedItemSubsection = itemSubsection.trim()
+        const normalizedSubsection = subsection.subsection.trim()
+        
+        return normalizedItemGP === normalizedGP && normalizedItemSubsection === normalizedSubsection
       })
       evidenceMap[subsection.subsection] = evidence
     })
