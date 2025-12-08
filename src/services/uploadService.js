@@ -21,7 +21,7 @@ export async function uploadFile(file, type = "general") {
   // Map upload types to backend endpoints
   switch (type) {
     case "evidence":
-      endpoint = "/photo-library/upload"
+      endpoint = "/evidence/upload"
       // teacher_id removed - backend gets it from JWT token
       break
     case "lesson-plan":

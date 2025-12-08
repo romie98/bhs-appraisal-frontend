@@ -14,11 +14,12 @@ async function apiCall(endpoint, options = {}) {
     // Based on network logs, backend redirects FROM /classes/ TO /classes (removes trailing slash)
     // So we should NOT add trailing slashes - let fetch follow redirects automatically
     // FastAPI typically expects NO trailing slash for GET requests
+    // EXCEPTION: /evidence/ endpoint requires trailing slash for list operation
     const isGetRequest = !options.method || options.method === 'GET'
     
-    // Remove trailing slashes for all requests (backend doesn't want them)
-    if (cleanEndpoint.endsWith('/') && cleanEndpoint !== '/') {
-      // Keep trailing slash only for root path
+    // Remove trailing slashes for all requests EXCEPT /evidence/
+    // Backend requires trailing slash for GET /evidence/ (list evidence)
+    if (cleanEndpoint.endsWith('/') && cleanEndpoint !== '/' && cleanEndpoint !== '/evidence/') {
       cleanEndpoint = cleanEndpoint.slice(0, -1)
     }
     
@@ -607,6 +608,82 @@ export const photoLibraryApi = {
   },
 
   getById: (id) => apiCall(`/photo-library/${id}`),
+}
+
+// Evidence API
+export const evidenceApi = {
+  // List all evidence (GET /evidence/)
+  list: () => apiCall('/evidence/'),
+  
+  // Get specific evidence by ID (GET /evidence/{id})
+  getById: (id) => apiCall(`/evidence/${id}`),
+  
+  // Upload evidence (POST /evidence/upload)
+  upload: async (file, metadata = {}) => {
+    console.log("=== API DEBUG START (evidenceApi.upload) ===");
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    // Add metadata fields if provided
+    if (metadata.gp) formData.append('gp', metadata.gp)
+    if (metadata.subsection) formData.append('subsection', metadata.subsection)
+    if (metadata.title) formData.append('title', metadata.title)
+    if (metadata.notes) formData.append('notes', metadata.notes)
+    if (metadata.selectedEvidence) {
+      formData.append('selectedEvidence', JSON.stringify(metadata.selectedEvidence))
+    }
+    
+    const fullUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/evidence/upload`
+    console.log("FETCH URL:", fullUrl);
+    console.log("METHOD: POST");
+    
+    try {
+      const response = await apiFetch('/evidence/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      
+      const contentType = response.headers.get('content-type') || ''
+      const rawText = await response.clone().text()
+      console.log("STATUS:", response.status);
+      console.log("RAW RESPONSE LENGTH:", rawText.length, "bytes");
+      
+      if (!response.ok) {
+        console.error("⚠️ HTTP ERROR:", response.status, fullUrl);
+        if (contentType.includes('application/json')) {
+          const error = JSON.parse(rawText)
+          console.error("ERROR JSON:", error);
+          throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+        }
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      if (!contentType.includes('application/json')) {
+        console.error("⚠️ NON-JSON RESPONSE:", fullUrl, contentType);
+        throw new Error('Server returned non-JSON response')
+      }
+      
+      const json = JSON.parse(rawText)
+      console.log("JSON PARSED:", json);
+      console.log("=== API DEBUG END ===");
+      return json
+    } catch (error) {
+      console.error("=== API ERROR ===");
+      console.error("ENDPOINT: /evidence/upload");
+      console.error("ERROR:", error);
+      console.error("=== API ERROR END ===");
+      throw error
+    }
+  },
+  
+  // Update evidence (PUT /evidence/{id})
+  update: (id, data) => apiCall(`/evidence/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
+  
+  // Delete evidence (DELETE /evidence/{id})
+  delete: (id) => apiCall(`/evidence/${id}`, { method: 'DELETE' }),
 }
 
 // Export to PDF
