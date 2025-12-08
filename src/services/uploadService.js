@@ -76,6 +76,13 @@ export async function uploadFile(file, type = "general") {
     return await uploadPhoto(file);
   }
   
+  // Handle default/general uploads (photo-library) with direct fetch
+  // This ensures we use the correct backend URL, not Vercel
+  if (type === "general" || !type) {
+    // Use the uploadPhoto function for general files (photo-library)
+    return await uploadPhoto(file);
+  }
+  
   // Map other upload types to backend endpoints
   let endpoint = ""
   switch (type) {
@@ -89,8 +96,11 @@ export async function uploadFile(file, type = "general") {
     default:
       // Default to photo-library upload for general files
       endpoint = "/photo-library/upload"
+      // Use direct fetch for photo-library to ensure correct backend URL
+      return await uploadPhoto(file);
   }
 
+  // For lesson-plan and logbook, use apiFetch (they may have different requirements)
   try {
     const response = await apiFetch(endpoint, {
       method: "POST",
@@ -107,13 +117,19 @@ export async function uploadFile(file, type = "general") {
 
     const data = await response.json()
     
+    // Clean Supabase URLs by trimming trailing '?'
+    if (data.supabase_url && typeof data.supabase_url === 'string') {
+      data.supabase_url = data.supabase_url.replace(/\?+$/, '')
+    }
+    
     // Backend returns different formats, normalize them
     return {
       success: true,
-      path: data.path || data.file_path,
-      file_url: data.file_url || data.signed_url || data.url,
-      signed_url: data.file_url || data.signed_url || data.url,
-      ...data // Include any other fields (id, ocr_text, etc.)
+      path: data.path || data.file_path || data.supabase_path,
+      file_url: data.file_url || data.signed_url || data.url || data.supabase_url,
+      signed_url: data.file_url || data.signed_url || data.url || data.supabase_url,
+      supabase_url: data.supabase_url || data.file_url || data.signed_url || data.url,
+      ...data // Include any other fields (id, ocr_text, gp_recommendations, etc.)
     }
   } catch (error) {
     return {
@@ -205,7 +221,8 @@ export async function uploadPhoto(file) {
   console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
   console.log("apiUrl =", apiUrl);
   console.log("cleanBase =", cleanBase);
-  console.log("UPLOAD URL:", fullUrl);
+  console.log("PHOTO UPLOAD URL:", fullUrl);
+  console.log("Expected backend URL: https://bhs-appraisal-backend-production.up.railway.app/photo-library/upload");
   
   const token = localStorage.getItem('auth_token');
   
@@ -233,6 +250,15 @@ export async function uploadPhoto(file) {
       data.supabase_url = data.supabase_url.replace(/\?+$/, '')
     }
     
+    console.log("Upload response:", {
+      id: data.id,
+      filename: data.filename,
+      supabase_url: data.supabase_url,
+      ocr_text: data.ocr_text ? `${data.ocr_text.substring(0, 50)}...` : null,
+      gp_recommendations: data.gp_recommendations,
+      gp_subsections: data.gp_subsections
+    });
+    
     return {
       success: true,
       path: data.file_path || data.supabase_path,
@@ -241,6 +267,10 @@ export async function uploadPhoto(file) {
       supabase_url: data.supabase_url || data.file_url,
       supabase_path: data.supabase_path,
       id: data.id,
+      filename: data.filename,
+      ocr_text: data.ocr_text,
+      gp_recommendations: data.gp_recommendations,
+      gp_subsections: data.gp_subsections,
       ...data
     }
   } catch (error) {

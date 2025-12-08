@@ -640,7 +640,14 @@ export const photoLibraryApi = {
         json.supabase_url = json.supabase_url.replace(/\?+$/, '')
       }
       
-      console.log("JSON PARSED:", json);
+      console.log("JSON PARSED:", {
+        id: json.id,
+        filename: json.filename,
+        supabase_url: json.supabase_url,
+        ocr_text: json.ocr_text ? `${json.ocr_text.substring(0, 50)}...` : null,
+        gp_recommendations: json.gp_recommendations,
+        gp_subsections: json.gp_subsections
+      });
       console.log("=== API DEBUG END ===");
       return json
     } catch (error) {

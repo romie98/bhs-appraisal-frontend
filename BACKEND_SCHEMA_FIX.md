@@ -139,3 +139,4 @@ After applying the migration:
 - ✅ Photos display correctly using Supabase URLs
 
 
+
