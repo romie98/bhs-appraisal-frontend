@@ -11,8 +11,15 @@ async function fetchEvidence() {
     return [];
   }
   
+  const apiUrl = window.__APP_API_URL__ || '';
+  if (!apiUrl) {
+    throw new Error('API_BASE_URL is not configured');
+  }
+  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+  const fullUrl = `${cleanBase}/evidence/`;
+  
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/evidence/`, {
+    const response = await fetch(fullUrl, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"

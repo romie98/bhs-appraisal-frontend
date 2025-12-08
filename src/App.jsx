@@ -68,7 +68,7 @@ function App() {
     </Routes>
   )
 }
-console.log("API URL =", import.meta.env.VITE_API_BASE_URL);
+console.log("API URL =", window.__APP_API_URL__);
 
 export default App
 

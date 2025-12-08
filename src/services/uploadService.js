@@ -1,9 +1,9 @@
 // Upload service for Supabase file uploads via backend
 import { apiFetch } from "../config/api"
 
-// Get API base URL
+// Get API base URL from window.__APP_API_URL__
 const getApiUrl = () => {
-  return import.meta.env.VITE_API_BASE_URL || '';
+  return window.__APP_API_URL__ || '';
 }
 
 /**

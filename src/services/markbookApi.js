@@ -24,8 +24,9 @@ async function apiCall(endpoint, options = {}) {
     }
     
     // Build full URL for logging
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
-    const fullUrl = `${apiUrl}${cleanEndpoint}`
+    const apiUrl = window.__APP_API_URL__ || ''
+    const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+    const fullUrl = `${cleanBase}${cleanEndpoint}`
     
     console.log("CALLING:", fullUrl);
     console.log("METHOD:", options.method || 'GET');
@@ -421,8 +422,9 @@ export const lessonPlansApi = {
     formData.append('title', title)
     // teacher_id removed - backend gets it from JWT token
     
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
-    const fullUrl = `${apiUrl}/lesson-plans/upload`
+      const apiUrl = window.__APP_API_URL__ || ''
+      const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const fullUrl = `${cleanBase}/lesson-plans/upload`
     console.log("CALLING:", fullUrl);
     console.log("METHOD: POST");
     
@@ -525,8 +527,9 @@ export const photoLibraryApi = {
     formData.append('file', file)
     // teacher_id removed - backend gets it from JWT token
 
-    const apiUrl = import.meta.env.VITE_API_BASE_URL || ''
-    const fullUrl = `${apiUrl}/photo-library/upload`
+      const apiUrl = window.__APP_API_URL__ || ''
+      const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+      const fullUrl = `${cleanBase}/photo-library/upload`
     console.log("CALLING:", fullUrl);
     console.log("METHOD: POST");
     
@@ -633,13 +636,27 @@ export const evidenceApi = {
       formData.append('selectedEvidence', JSON.stringify(metadata.selectedEvidence))
     }
     
-    const fullUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/evidence/upload`
+    // Get API URL and construct full URL
+    const apiUrl = window.__APP_API_URL__ || '';
+    if (!apiUrl) {
+      throw new Error('API_BASE_URL is not configured');
+    }
+    const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+    const fullUrl = `${cleanBase}/evidence/upload`;
     console.log("FETCH URL:", fullUrl);
     console.log("METHOD: POST");
     
+    // Get auth token
+    const token = localStorage.getItem('auth_token');
+    const headers = new Headers();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    
     try {
-      const response = await apiFetch('/evidence/upload', {
+      const response = await fetch(fullUrl, {
         method: 'POST',
+        headers: headers,
         body: formData,
       })
       

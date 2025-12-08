@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthContext'
 import App from './App.jsx'
 import './index.css'
 
-console.log(import.meta.env.VITE_API_BASE_URL);
+console.log("API URL =", window.__APP_API_URL__);
 
 const queryClient = new QueryClient({
   defaultOptions: {
