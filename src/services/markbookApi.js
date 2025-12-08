@@ -670,8 +670,11 @@ export const evidenceApi = {
     console.log("=== EVIDENCE UPLOAD DEBUG ===");
     console.log("window.__APP_API_URL__ =", window.__APP_API_URL__);
     console.log("Final apiUrl =", apiUrl);
+    console.log("cleanBase =", cleanBase);
     console.log("FETCH URL:", fullUrl);
     console.log("METHOD: POST");
+    console.log("Expected full URL: https://bhs-appraisal-backend-production.up.railway.app/evidence/upload");
+    console.log("URLs match:", fullUrl === "https://bhs-appraisal-backend-production.up.railway.app/evidence/upload");
     
     // Get auth token
     const token = localStorage.getItem('auth_token');
@@ -708,13 +711,23 @@ export const evidenceApi = {
       console.log("RAW RESPONSE LENGTH:", rawText.length, "bytes");
       
       if (!response.ok) {
-        console.error("⚠️ HTTP ERROR:", response.status, fullUrl);
+        console.error("⚠️ HTTP ERROR:", response.status, response.statusText);
+        console.error("URL:", fullUrl);
+        console.error("Response headers:", Object.fromEntries(response.headers.entries()));
+        console.error("Response body (first 500 chars):", rawText.substring(0, 500));
+        
         if (contentType.includes('application/json')) {
-          const error = JSON.parse(rawText)
-          console.error("ERROR JSON:", error);
-          throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+          try {
+            const error = JSON.parse(rawText)
+            console.error("ERROR JSON:", error);
+            const errorMsg = error.detail || error.message || `HTTP error! status: ${response.status}`;
+            throw new Error(errorMsg)
+          } catch (parseError) {
+            console.error("Failed to parse error JSON:", parseError);
+            throw new Error(`HTTP ${response.status} ${response.statusText}: ${rawText.substring(0, 200)}`)
+          }
         }
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP ${response.status} ${response.statusText}. Response: ${rawText.substring(0, 200)}`)
       }
       
       if (!contentType.includes('application/json')) {
