@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { FileText, Calendar, Upload, CheckCircle, X, Loader } from 'lucide-react'
 import EvidenceCheckboxList from './EvidenceCheckboxList'
-// Google Drive integration removed - all uploads go to backend storage
-import { saveEvidenceToStore } from '../utils/evidenceStore'
+import { evidenceApi } from '../services/markbookApi'
 
 function EvidenceUploader({ schema, onSave }) {
   const [title, setTitle] = useState('')
@@ -11,9 +10,8 @@ function EvidenceUploader({ schema, onSave }) {
   const [subsection, setSubsection] = useState(schema.subsection || '')
   const [selectedEvidence, setSelectedEvidence] = useState([])
   const [files, setFiles] = useState(null)
-  const [localPath, setLocalPath] = useState('')
-  const [useLocalPath, setUseLocalPath] = useState(false)
   const [notes, setNotes] = useState('')
+  // Removed: localPath and useLocalPath - now using backend API only
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -78,11 +76,8 @@ function EvidenceUploader({ schema, onSave }) {
     }
 
     // File validation
-    if (!useLocalPath && (!files || files.length === 0)) {
+    if (!files || files.length === 0) {
       newErrors.file = 'Please select a file to upload'
-      isValid = false
-    } else if (useLocalPath && !localPath.trim()) {
-      newErrors.file = 'Please enter a local file path'
       isValid = false
     }
 
@@ -99,41 +94,31 @@ function EvidenceUploader({ schema, onSave }) {
       return
     }
 
+    if (!files || files.length === 0) {
+      setErrors({ ...errors, file: 'Please select a file to upload.' })
+      return
+    }
+
     setIsUploading(true)
 
     try {
-      let fileName = ''
 
-      if (!useLocalPath && files && files.length > 0) {
-        // Upload to backend storage (handled by backend API)
-        // For now, just use the file name
-        fileName = files[0].name
-        // TODO: Upload file to backend API endpoint
-        // The backend will handle file storage
-      } else {
-        // Use local path
-        fileName = localPath.split('/').pop() || localPath.split('\\').pop() || 'Local File'
-      }
-
-      // Build metadata object
+      const file = files[0]
+      
+      // Upload to backend API
       const metadata = {
-        id: `${schema.id}-${Date.now()}`,
         gp: gp,
         subsection: subsection,
         title: title,
         selectedEvidence: selectedEvidence,
-        fileName: fileName,
-        localPath: useLocalPath ? localPath : null,
         notes: notes,
-        dateAdded: date,
       }
 
-      // Save to store
-      saveEvidenceToStore(metadata)
+      const result = await evidenceApi.upload(file, metadata)
 
-      // Call onSave callback
+      // Call onSave callback with backend response
       if (onSave) {
-        onSave(metadata)
+        onSave(result)
       }
 
       // Show success
@@ -145,8 +130,6 @@ function EvidenceUploader({ schema, onSave }) {
       setDate(new Date().toISOString().split('T')[0])
       setSelectedEvidence([])
       setFiles(null)
-      setLocalPath('')
-      setUseLocalPath(false)
       setNotes('')
       
       // Reset file input
@@ -314,72 +297,36 @@ function EvidenceUploader({ schema, onSave }) {
           </label>
           
           <div className="space-y-3">
-            <label className="flex items-center gap-2">
+            <div>
+              <label
+                htmlFor={`file-input-${schema.id}`}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out cursor-pointer font-medium text-sm w-fit ${
+                  errors.file
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                }`}
+              >
+                <Upload className="w-4 h-4" />
+                {files ? `Selected: ${files[0]?.name}` : 'Choose File'}
+              </label>
               <input
-                type="checkbox"
-                checked={useLocalPath}
-                onChange={(e) => setUseLocalPath(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                id={`file-input-${schema.id}`}
+                type="file"
+                onChange={(e) => {
+                  handleFileChange(e)
+                  if (errors.file) setErrors({ ...errors, file: '' })
+                }}
+                multiple={schema.allowMultipleFiles}
+                className="hidden"
+                aria-invalid={!!errors.file}
+                aria-describedby={errors.file ? `file-error-${schema.id}` : undefined}
               />
-              <span className="text-sm text-gray-700">Use local file path instead</span>
-            </label>
-
-            {!useLocalPath ? (
-              <div>
-                <label
-                  htmlFor={`file-input-${schema.id}`}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out cursor-pointer font-medium text-sm w-fit ${
-                    errors.file
-                      ? 'bg-red-600 text-white hover:bg-red-700'
-                      : 'bg-sky-600 text-white hover:bg-sky-700'
-                  }`}
-                >
-                  <Upload className="w-4 h-4" />
-                  {files ? `Selected: ${files[0]?.name}` : 'Choose File'}
-                </label>
-                <input
-                  id={`file-input-${schema.id}`}
-                  type="file"
-                  onChange={(e) => {
-                    handleFileChange(e)
-                    if (errors.file) setErrors({ ...errors, file: '' })
-                  }}
-                  multiple={schema.allowMultipleFiles}
-                  className="hidden"
-                  aria-invalid={!!errors.file}
-                  aria-describedby={errors.file ? `file-error-${schema.id}` : undefined}
-                />
-                {errors.file && (
-                  <p id={`file-error-${schema.id}`} className="mt-1 text-sm text-red-600" role="alert">
-                    {errors.file}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  value={localPath}
-                  onChange={(e) => {
-                    setLocalPath(e.target.value)
-                    if (errors.file) setErrors({ ...errors, file: '' })
-                  }}
-                  placeholder="/path/to/file.pdf"
-                  className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 ease-in-out ${
-                    errors.file
-                      ? 'border-red-300 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-sky-500'
-                  }`}
-                  aria-invalid={!!errors.file}
-                  aria-describedby={errors.file ? `file-error-${schema.id}` : undefined}
-                />
-                {errors.file && (
-                  <p id={`file-error-${schema.id}`} className="mt-1 text-sm text-red-600" role="alert">
-                    {errors.file}
-                  </p>
-                )}
-              </div>
-            )}
+              {errors.file && (
+                <p id={`file-error-${schema.id}`} className="mt-1 text-sm text-red-600" role="alert">
+                  {errors.file}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 

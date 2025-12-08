@@ -1,11 +1,43 @@
 import { useState, useEffect } from 'react'
 import { evidenceSchema } from '../data/evidenceSchema'
-import { getEvidenceByGPAndSubsectionSync, loadEvidenceStore, saveEvidenceToStore } from '../utils/evidenceStore'
+import { evidenceApi } from '../services/markbookApi'
 import GPAccordion from '../components/GPAccordion'
+
+// Fetch evidence from backend API
+async function fetchEvidence() {
+  const token = localStorage.getItem("auth_token");
+  if (!token) {
+    console.warn("No auth token found");
+    return [];
+  }
+  
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/evidence/`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Authentication failed. Please login again.');
+      }
+      throw new Error(`Failed to fetch evidence: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching evidence:', error);
+    return [];
+  }
+}
 
 function GPPage({ gpCode }) {
   const [evidenceData, setEvidenceData] = useState({})
   const [editingEvidence, setEditingEvidence] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   // GP titles mapping
   const gpTitles = {
@@ -21,31 +53,33 @@ function GPPage({ gpCode }) {
   const gp = gpCode?.startsWith('GP') ? gpCode : `GP ${gpCode || 1}`
   const gpTitle = gpTitles[gp] || `${gp} Standards`
 
-  // Load evidence for this GP
+  // Load evidence for this GP from backend
   useEffect(() => {
-    const loadEvidence = () => {
-      const subsections = evidenceSchema.filter(item => item.gp === gp)
-      const evidenceMap = {}
-      
-      subsections.forEach(subsection => {
-        const evidence = getEvidenceByGPAndSubsectionSync(gp, subsection.subsection)
-        evidenceMap[subsection.subsection] = evidence
-      })
-      
-      setEvidenceData(evidenceMap)
+    const loadEvidence = async () => {
+      setLoading(true);
+      try {
+        const allEvidence = await fetchEvidence();
+        const subsections = evidenceSchema.filter(item => item.gp === gp)
+        const evidenceMap = {}
+        
+        subsections.forEach(subsection => {
+          // Filter evidence by GP and subsection
+          const evidence = allEvidence.filter(item => 
+            item.gp === gp && item.subsection === subsection.subsection
+          );
+          evidenceMap[subsection.subsection] = evidence
+        })
+        
+        setEvidenceData(evidenceMap)
+      } catch (error) {
+        console.error('Error loading evidence:', error);
+        setEvidenceData({});
+      } finally {
+        setLoading(false);
+      }
     }
 
-    loadEvidence()
-
-    // Listen for store updates
-    const handleStoreUpdate = () => {
-      loadEvidence()
-    }
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('evidenceStoreUpdated', handleStoreUpdate)
-      return () => window.removeEventListener('evidenceStoreUpdated', handleStoreUpdate)
-    }
+    loadEvidence();
   }, [gp])
 
   // Get all subsections for this GP
@@ -83,12 +117,25 @@ function GPPage({ gpCode }) {
               // TODO: Open edit modal or navigate to edit page
               console.log('Edit evidence:', evidence)
             }}
-            onDelete={(evidenceId) => {
+            onDelete={async (evidenceId) => {
               if (window.confirm('Are you sure you want to delete this evidence?')) {
-                const store = loadEvidenceStore()
-                const updatedStore = store.filter(item => item.id !== evidenceId)
-                localStorage.setItem('localEvidenceStore', JSON.stringify(updatedStore, null, 2))
-                window.dispatchEvent(new CustomEvent('evidenceStoreUpdated', { detail: updatedStore }))
+                try {
+                  await evidenceApi.delete(evidenceId);
+                  // Reload evidence after deletion
+                  const allEvidence = await fetchEvidence();
+                  const subsections = evidenceSchema.filter(item => item.gp === gp)
+                  const evidenceMap = {}
+                  subsections.forEach(subsection => {
+                    const evidence = allEvidence.filter(item => 
+                      item.gp === gp && item.subsection === subsection.subsection
+                    );
+                    evidenceMap[subsection.subsection] = evidence
+                  })
+                  setEvidenceData(evidenceMap)
+                } catch (error) {
+                  console.error('Error deleting evidence:', error);
+                  alert('Failed to delete evidence. Please try again.');
+                }
               }
             }}
           />

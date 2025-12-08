@@ -1,12 +1,43 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { evidenceSchema } from '../data/evidenceSchema'
-import { loadEvidenceStore, getEvidenceByGP } from '../utils/evidenceStore'
 import { FileText, ArrowRight, Clock } from 'lucide-react'
+
+// Fetch evidence from backend API
+async function fetchEvidence() {
+  const token = localStorage.getItem("auth_token");
+  if (!token) {
+    console.warn("No auth token found");
+    return [];
+  }
+  
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/evidence/`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        throw new Error('Authentication failed. Please login again.');
+      }
+      throw new Error(`Failed to fetch evidence: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching evidence:', error);
+    return [];
+  }
+}
 
 function UploadEvidence() {
   const navigate = useNavigate()
   const [gpStats, setGpStats] = useState({})
+  const [loading, setLoading] = useState(true)
 
   // GP category titles
   const gpTitles = {
@@ -28,43 +59,43 @@ function UploadEvidence() {
     'GP 6': 'bg-rose-50 border-rose-200 text-rose-700'
   }
 
-  // Load GP statistics
+  // Load GP statistics from backend
   useEffect(() => {
-    const loadStats = () => {
-      const store = loadEvidenceStore()
-      const stats = {}
+    const loadStats = async () => {
+      setLoading(true);
+      try {
+        const allEvidence = await fetchEvidence();
+        const stats = {}
 
-      Object.keys(gpTitles).forEach(gp => {
-        const evidence = getEvidenceByGP(gp)
-        const subsections = evidenceSchema.filter(item => item.gp === gp)
-        
-        // Get last upload date
-        const sortedEvidence = evidence.sort((a, b) => {
-          const dateA = new Date(a.dateAdded || 0)
-          const dateB = new Date(b.dateAdded || 0)
-          return dateB - dateA
+        Object.keys(gpTitles).forEach(gp => {
+          const evidence = allEvidence.filter(item => item.gp === gp);
+          const subsections = evidenceSchema.filter(item => item.gp === gp)
+          
+          // Get last upload date
+          const sortedEvidence = evidence.sort((a, b) => {
+            const dateA = new Date(a.date_added || a.dateAdded || 0)
+            const dateB = new Date(b.date_added || b.dateAdded || 0)
+            return dateB - dateA
+          })
+          const lastUpload = sortedEvidence[0]?.date_added || sortedEvidence[0]?.dateAdded
+
+          stats[gp] = {
+            count: evidence.length,
+            subsections: subsections.length,
+            lastUpload
+          }
         })
-        const lastUpload = sortedEvidence[0]?.dateAdded
 
-        stats[gp] = {
-          count: evidence.length,
-          subsections: subsections.length,
-          lastUpload
-        }
-      })
-
-      setGpStats(stats)
+        setGpStats(stats)
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        setGpStats({});
+      } finally {
+        setLoading(false);
+      }
     }
 
-    loadStats()
-
-    // Listen for store updates
-    const handleStoreUpdate = () => {
-      loadStats()
-    }
-    
-    window.addEventListener('evidenceStoreUpdated', handleStoreUpdate)
-    return () => window.removeEventListener('evidenceStoreUpdated', handleStoreUpdate)
+    loadStats();
   }, [])
 
   const formatLastUpload = (dateString) => {
@@ -167,7 +198,7 @@ function UploadEvidence() {
           <div className="p-4 bg-green-50 rounded-xl">
             <p className="text-sm text-gray-600 mb-1">Total Evidence Items</p>
             <p className="text-2xl font-bold text-green-600">
-              {loadEvidenceStore().length}
+              {loading ? '...' : Object.values(gpStats).reduce((sum, stat) => sum + (stat.count || 0), 0)}
             </p>
           </div>
           <div className="p-4 bg-purple-50 rounded-xl">
