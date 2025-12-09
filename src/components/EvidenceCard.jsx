@@ -161,20 +161,9 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       return (
         <img
           src={fileUrl}
-          className="rounded-xl shadow-lg"
+          className="evidence-preview-image rounded-xl shadow-lg"
           alt={evidence.title || fileName || 'Preview'}
           loading="eager"
-          style={{
-            width: 'auto',
-            height: 'auto',
-            maxWidth: '92vw',
-            maxHeight: '88vh',
-            display: 'block',
-            pointerEvents: 'auto',
-            userSelect: 'auto',
-            cursor: 'default',
-            objectFit: 'contain'
-          }}
         />
       )
     }
@@ -306,7 +295,13 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       {/* Date Added */}
       <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
         <Calendar className="w-3 h-3" />
-        <span>{formatDate(evidence.dateAdded)}</span>
+        <span>
+          {evidence.uploaded_at 
+            ? new Date(evidence.uploaded_at).toLocaleDateString()
+            : evidence.dateAdded 
+            ? formatDate(evidence.dateAdded)
+            : 'No date'}
+        </span>
       </div>
 
       {/* Actions */}
@@ -399,11 +394,11 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       {/* Preview Modal - Rendered via Portal to escape parent constraints */}
       {open && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm overflow-y-auto p-6"
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm overflow-y-auto p-6 evidence-preview-modal"
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-y-auto overflow-x-auto p-2 relative flex flex-col my-auto"
+            className="evidence-preview-modal bg-white rounded-2xl shadow-2xl max-w-[900px] w-full max-h-[80vh] overflow-y-auto overflow-x-auto p-6 relative flex flex-col my-auto"
             onClick={(e) => e.stopPropagation()}
             style={{ pointerEvents: 'auto' }}
           >
@@ -419,11 +414,17 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
             {/* Modal Header */}
             <div className="mb-4 pr-8 flex-shrink-0">
               <h3 className="text-xl font-bold text-gray-800 mb-1">
-                {evidence.title || 'Evidence Preview'}
+                {evidence.title || 'Untitled Evidence'}
               </h3>
               <p className="text-sm text-gray-600">
                 {evidence.fileName || 'File preview'}
               </p>
+              {evidence.uploaded_at && (
+                <p className="text-xs text-gray-500 mt-1">
+                  <Calendar className="w-3 h-3 inline mr-1" />
+                  Uploaded: {new Date(evidence.uploaded_at).toLocaleDateString()}
+                </p>
+              )}
             </div>
 
             {/* Preview Content - Scrollable */}
@@ -439,10 +440,12 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
                 <span className="text-xs font-semibold rounded-full px-2 py-1 bg-gray-100 text-gray-700">
                   {evidence.gp} — {evidence.subsection}
                 </span>
-                {evidence.dateAdded && (
+                {(evidence.uploaded_at || evidence.dateAdded) && (
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    {formatDate(evidence.dateAdded)}
+                    {evidence.uploaded_at 
+                      ? new Date(evidence.uploaded_at).toLocaleDateString()
+                      : formatDate(evidence.dateAdded)}
                   </span>
                 )}
               </div>
