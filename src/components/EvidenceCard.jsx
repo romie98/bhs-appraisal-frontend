@@ -1,4 +1,4 @@
-import { FileText, Calendar, ExternalLink, Download, Edit, Trash2, Image, File, FileCode, FileVideo, X } from 'lucide-react'
+import { FileText, Calendar, ExternalLink, Download, Edit, Trash2, Image, File, FileCode, FileVideo, X, Eye, Pencil } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -325,31 +325,62 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span className="text-xs font-semibold rounded-full px-2 py-1 bg-gray-100 text-gray-700">
-                  {evidence.gp} — {evidence.subsection}
-                </span>
-                {(evidence.uploaded_at || evidence.dateAdded) && (
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {evidence.uploaded_at 
-                      ? new Date(evidence.uploaded_at).toLocaleDateString()
-                      : formatDate(evidence.dateAdded)}
-                  </span>
+            {/* Modal Footer - Action Row */}
+            <div className="mt-4 flex items-center justify-between border-t pt-4 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                {/* View Image */}
+                {evidence.supabase_url && (
+                  <a
+                    href={cleanSupabaseUrl(evidence.supabase_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View Image
+                  </a>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
+
+                {/* Download */}
                 {evidence.supabase_url && (
                   <a
                     href={cleanSupabaseUrl(evidence.supabase_url)}
                     download
-                    className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-3 py-1"
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
                   >
                     <Download className="w-4 h-4" />
                     Download
                   </a>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Edit */}
+                {onEdit && (
+                  <button
+                    onClick={() => {
+                      setOpen(false)
+                      onEdit(evidence)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                )}
+
+                {/* Delete */}
+                {onDelete && (
+                  <button
+                    onClick={() => {
+                      setOpen(false)
+                      onDelete(evidence.id)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
                 )}
               </div>
             </div>
