@@ -12,7 +12,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
   const [open, setOpen] = useState(false)
   const cardRef = useState(null)
 
-  // Handle Escape key to close modal and scroll card into view when opening
+  // Handle Escape key to close modal and body scroll lock
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && open) {
@@ -21,18 +21,19 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     }
     
     if (open) {
+      // Lock body scroll when modal is open
+      document.body.style.overflow = "hidden"
       document.addEventListener('keydown', handleEscape)
-      // Scroll the card into view when modal opens
-      const cardElement = document.querySelector(`[data-evidence-id="${evidence.id}"]`)
-      if (cardElement) {
-        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
+    } else {
+      // Restore body scroll when modal is closed
+      document.body.style.overflow = "auto"
     }
     
     return () => {
+      document.body.style.overflow = "auto"
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [open, evidence.id])
+  }, [open])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No date'
@@ -128,91 +129,58 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
     return null
   }
 
-  // Get preview element based on file type
+  // Get preview element based on file type - using URL extension detection
   const getPreviewElement = () => {
-    const fileName = evidence.fileName || ''
     const fileUrl = cleanSupabaseUrl(evidence.supabase_url)
 
     if (!fileUrl) {
       return (
-        <div className="w-full h-[85vh] flex items-center justify-center">
-          <div className="text-center">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 font-medium">No preview available</p>
-            <p className="text-sm text-gray-500 mt-2">File URL not available</p>
-          </div>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <FileText className="w-12 h-12 text-gray-400 mb-4" />
+          <p className="mt-2 text-gray-600 font-medium">No preview available</p>
+          <p className="text-sm text-gray-500 mt-2">File URL not available</p>
         </div>
       )
     }
 
-    // PDF preview
-    if (/\.(pdf)$/i.test(fileName)) {
-      return (
-        <iframe
-          src={fileUrl}
-          className="w-full h-[85vh] rounded-xl border-0"
-          title={`Preview of ${evidence.title || fileName}`}
-        />
-      )
-    }
+    // Detect image by URL extension
+    const isImageFile = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileUrl)
 
-    // IMAGE preview
-    if (isImage(fileName)) {
+    if (isImageFile) {
       return (
         <img
           src={fileUrl}
-          className="evidence-preview-image rounded-xl shadow-lg"
-          alt={evidence.title || fileName || 'Preview'}
-          loading="eager"
+          alt={evidence.title || "Evidence Preview"}
+          className="w-full max-h-[70vh] object-contain rounded-xl"
         />
       )
     }
 
-    // VIDEO preview
-    if (isVideo(fileName)) {
-      return (
-        <video
-          src={fileUrl}
-          controls
-          className="w-full max-h-[85vh] rounded-xl"
-        >
-          Your browser does not support the video tag.
-        </video>
-      )
-    }
-
-    // AUDIO preview
-    if (isAudio(fileName)) {
-      return (
-        <div className="w-full flex items-center justify-center py-8">
-          <audio
-            src={fileUrl}
-            controls
-            className="w-full max-w-md"
-          >
-            Your browser does not support the audio tag.
-          </audio>
-        </div>
-      )
-    }
-
-    // Default: No preview available
+    // Non-image files - show "No preview available"
     return (
-      <div className="w-full h-[85vh] flex items-center justify-center">
-        <div className="text-center">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">No preview available</p>
-          <p className="text-sm text-gray-500 mt-2">
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sky-600 hover:text-sky-700 underline"
-            >
-              Open file in new tab
-            </a>
-          </p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+        <svg 
+          className="w-12 h-12 text-gray-400" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+            d="M9 13h6m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h5a2 2 0 012 2v12a2 2 0 01-2 2z" 
+          />
+        </svg>
+        <p className="mt-2 text-gray-600 font-medium">No preview available</p>
+        <a
+          href={fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline mt-2 hover:text-blue-700"
+        >
+          Open file in new tab
+        </a>
       </div>
     )
   }
@@ -285,13 +253,12 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       {/* Preview Modal - Rendered via Portal to escape parent constraints */}
       {open && createPortal(
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 evidence-preview-modal backdrop-blur-sm overflow-y-auto"
+          className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center px-4"
           onClick={() => setOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative z-[10000] max-h-[80vh] overflow-y-auto overflow-x-auto flex flex-col"
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative"
             onClick={(e) => e.stopPropagation()}
-            style={{ pointerEvents: 'auto' }}
           >
             {/* Close Button */}
             <button
@@ -318,15 +285,13 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
               )}
             </div>
 
-            {/* Preview Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto" style={{ minHeight: 0, pointerEvents: 'auto', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="flex items-center justify-center py-2" style={{ width: '100%', height: '100%' }}>
-                {getPreviewElement()}
-              </div>
+            {/* Preview Content */}
+            <div className="flex items-center justify-center py-4">
+              {getPreviewElement()}
             </div>
 
             {/* Modal Footer - Action Row */}
-            <div className="mt-4 flex items-center justify-between border-t pt-4 flex-shrink-0">
+            <div className="flex justify-between items-center mt-6 border-t pt-4">
               <div className="flex items-center gap-3">
                 {/* View Image */}
                 {evidence.supabase_url && (
