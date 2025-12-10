@@ -1,15 +1,45 @@
-# Backend Fix for Evidence Title Support
+# Backend Fix: Evidence Title Not Saving
 
 ## Problem
-The Evidence table needs a `title` column to store user-provided evidence titles. The frontend is already sending `title` in the upload request, but the backend needs to accept and store it.
+The evidence title is not being saved to the database, causing all evidence to show as "Untitled Evidence" in the UI. The frontend is correctly sending the title, but the backend needs to:
+1. Add `title` column to the database
+2. Update the SQLAlchemy model
+3. Accept and save title in the upload endpoint
+4. Return title in the list endpoint
 
 ## Required Fixes
 
-### 1. Update SQLAlchemy Model
+### 1. DATABASE MIGRATION — Add title field
 
-**File:** `app/models/evidence.py` (or wherever Evidence model is defined)
+**Run this SQL on your Railway PostgreSQL database:**
 
-Add the `title` field to the Evidence model:
+```sql
+-- Add title column to evidence table
+ALTER TABLE evidence
+ADD COLUMN IF NOT EXISTS title TEXT;
+
+-- Set default for existing records (optional)
+UPDATE evidence
+SET title = 'Untitled Evidence'
+WHERE title IS NULL;
+
+-- Verify column was added
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'evidence'
+AND column_name = 'title';
+```
+
+**Expected Result:**
+- Column `title` (TEXT, nullable) should exist in the `evidence` table
+
+---
+
+### 2. BACKEND: Update Evidence Model
+
+**File:** `app/models/evidence.py` (or wherever Evidence SQLAlchemy model is defined)
+
+**Add the `title` field to the Evidence model:**
 
 ```python
 from sqlalchemy import Column, String, Text, DateTime, JSON
@@ -36,31 +66,20 @@ class Evidence(Base):
     # ... other fields
 ```
 
-### 2. Database Migration
+**Note:** Using `nullable=True` allows existing records without titles. If you want to enforce titles, use `nullable=False, default="Untitled Evidence"`.
 
-**Run this SQL on your Railway PostgreSQL database:**
+---
 
-```sql
--- Add title column to evidence table
-ALTER TABLE evidence 
-ADD COLUMN IF NOT EXISTS title TEXT;
+### 3. BACKEND: Accept title in create evidence endpoint
 
--- Verify column was added
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns 
-WHERE table_name = 'evidence'
-ORDER BY ordinal_position;
-```
+**File:** `app/routers/evidence.py` or `app/modules/evidence/routers.py`
 
-### 3. Update Upload Endpoint
-
-**File:** `app/routers/evidence.py` (or wherever `/evidence/upload` is defined)
-
-Update the endpoint to accept `title` from FormData:
+**Update the POST `/evidence/upload` endpoint:**
 
 ```python
 from fastapi import File, UploadFile, Form, Depends
 from typing import Optional
+from uuid import uuid4
 
 @router.post("/upload")
 async def upload_evidence(
@@ -95,11 +114,14 @@ async def upload_evidence(
         except:
             pass
     
+    # ✅ Ensure title has a default value
+    evidence_title = title if title and title.strip() else "Untitled Evidence"
+    
     # Save to database
-    evidence = Evidence(
-        id=str(uuid.uuid4()),
+    new_evidence = Evidence(
+        id=str(uuid4()),
         teacher_id=current_user.id,
-        title=title,  # ✅ Save title
+        title=evidence_title,  # ✅ Save title
         filename=file.filename,
         supabase_path=supabase_path,
         supabase_url=supabase_url,
@@ -112,29 +134,39 @@ async def upload_evidence(
         uploaded_at=func.now()
     )
     
-    db.add(evidence)
+    db.add(new_evidence)
     db.commit()
-    db.refresh(evidence)
+    db.refresh(new_evidence)
     
     return {
-        "id": evidence.id,
-        "title": evidence.title,  # ✅ Include title in response
-        "filename": evidence.filename,
-        "supabase_path": evidence.supabase_path,
-        "supabase_url": evidence.supabase_url,
-        "gp": evidence.gp,
-        "subsection": evidence.subsection,
-        "gp_section": evidence.gp_section,
-        "description": evidence.description,
-        "notes": evidence.notes,
-        "selected_evidence": evidence.selected_evidence,
-        "uploaded_at": evidence.uploaded_at.isoformat() if evidence.uploaded_at else None
+        "id": new_evidence.id,
+        "title": new_evidence.title,  # ✅ Include title in response
+        "filename": new_evidence.filename,
+        "supabase_path": new_evidence.supabase_path,
+        "supabase_url": new_evidence.supabase_url,
+        "gp": new_evidence.gp,
+        "subsection": new_evidence.subsection,
+        "gp_section": new_evidence.gp_section,
+        "description": new_evidence.description,
+        "notes": new_evidence.notes,
+        "selected_evidence": new_evidence.selected_evidence,
+        "uploaded_at": new_evidence.uploaded_at.isoformat() if new_evidence.uploaded_at else None
     }
 ```
 
-### 4. Update List Endpoint Response
+**Key Points:**
+- Add `title: Optional[str] = Form(None)` to the endpoint parameters
+- Extract title from form data: `evidence_title = title if title and title.strip() else "Untitled Evidence"`
+- Save title to the Evidence model: `title=evidence_title`
+- Return title in the response: `"title": new_evidence.title`
 
-Ensure the `/evidence/` list endpoint also returns `title`:
+---
+
+### 4. BACKEND: Return title in evidence list API
+
+**File:** `app/routers/evidence.py` or `app/modules/evidence/routers.py`
+
+**Update the GET `/evidence/` endpoint:**
 
 ```python
 @router.get("/")
@@ -155,9 +187,10 @@ async def list_evidence(
     return [
         {
             "id": e.id,
-            "title": e.title,  # ✅ Include title
+            "title": e.title or "Untitled Evidence",  # ✅ Include title with fallback
             "filename": e.filename,
             "supabase_url": e.supabase_url,
+            "supabase_path": e.supabase_path,
             "gp": e.gp,
             "subsection": e.subsection,
             "gp_section": e.gp_section,
@@ -170,46 +203,70 @@ async def list_evidence(
     ]
 ```
 
-### 5. Python Migration Script (Optional)
+**Key Points:**
+- Ensure `"title": e.title or "Untitled Evidence"` is included in the response
+- Provide a fallback for records that might not have a title yet
 
-If you prefer a Python migration script:
+---
 
-```python
-from sqlalchemy import text
-from app.database import engine
+### 5. FRONTEND: Verify title binding (Already Correct)
 
-def add_title_column():
-    """
-    Add title column to evidence table
-    """
-    with engine.connect() as conn:
-        conn.execute(text("""
-            ALTER TABLE evidence 
-            ADD COLUMN IF NOT EXISTS title TEXT;
-        """))
-        conn.commit()
-        print("✅ Added title column to evidence table")
-        
-        # Verify
-        result = conn.execute(text("""
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'evidence'
-            AND column_name = 'title';
-        """))
-        row = result.fetchone()
-        if row:
-            print(f"✅ Verified: {row[0]} ({row[1]})")
-        else:
-            print("❌ Column not found")
+**File:** `src/components/EvidenceCard.jsx`
 
-if __name__ == "__main__":
-    add_title_column()
+**Current implementation is correct:**
+
+```jsx
+// In grid card
+<h3 className="font-semibold text-gray-800 mb-2 line-clamp-1 text-sm">
+  {evidence.title || 'Untitled Evidence'}
+</h3>
+
+// In modal header
+<h3 className="text-xl font-bold text-gray-800 mb-1">
+  {evidence.title || 'Untitled Evidence'}
+</h3>
 ```
+
+✅ **No changes needed** - Frontend is already correctly displaying titles with fallback.
+
+---
+
+### 6. FRONTEND: Verify upload form sends title (Already Correct)
+
+**File:** `src/components/EvidenceUploader.jsx`
+
+**Current implementation is correct:**
+
+```javascript
+const metadata = {
+  gp: gp,
+  subsection: subsection,
+  gp_section: gpSection,
+  title: title,  // ✅ Title is included
+  description: notes,
+  selectedEvidence: selectedEvidence,
+  notes: notes,
+}
+
+const result = await evidenceApi.upload(file, metadata)
+```
+
+**File:** `src/services/markbookApi.js`
+
+**Current implementation is correct:**
+
+```javascript
+if (metadata.title) formData.append('title', metadata.title)  // ✅ Title is appended to FormData
+```
+
+✅ **No changes needed** - Frontend is already correctly sending title in FormData.
+
+---
 
 ## Verification Steps
 
-### 1. Check Table Structure
+### 1. Check Database Schema
+
 ```sql
 \d evidence
 ```
@@ -231,18 +288,18 @@ Expected columns should include:
 curl -X POST "https://bhs-appraisal-backend-production.up.railway.app/evidence/upload" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@test.pdf" \
-  -F "title=My Evidence Title" \
+  -F "title=My Test Evidence Title" \
   -F "gp=GP 1" \
   -F "subsection=1.1" \
   -F "gp_section=GP 1.1" \
   -F "description=Test description"
 ```
 
-Expected response:
+**Expected response:**
 ```json
 {
   "id": "uuid-here",
-  "title": "My Evidence Title",
+  "title": "My Test Evidence Title",  // ✅ Should match what was sent
   "filename": "test.pdf",
   "supabase_path": "evidence/uuid/test.pdf",
   "supabase_url": "https://...supabase.co/storage/v1/object/public/...",
@@ -253,40 +310,46 @@ Expected response:
 }
 ```
 
-### 3. Verify Database Record
+### 3. Test List Endpoint
 
-```sql
-SELECT 
-  id,
-  title,
-  filename,
-  supabase_url,
-  gp_section,
-  uploaded_at
-FROM evidence
-ORDER BY uploaded_at DESC
-LIMIT 1;
+```bash
+curl -X GET "https://bhs-appraisal-backend-production.up.railway.app/evidence/" \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-## Expected Results
+**Expected response:**
+```json
+[
+  {
+    "id": "uuid-here",
+    "title": "My Test Evidence Title",  // ✅ Should be present
+    "filename": "test.pdf",
+    "supabase_url": "https://...",
+    ...
+  }
+]
+```
 
-After applying all fixes:
+### 4. Verify in Frontend
 
-- ✅ No more errors when saving evidence with title
-- ✅ Title is saved to database
-- ✅ Title appears in API responses
-- ✅ Frontend displays title instead of "Untitled Evidence"
-- ✅ Title is searchable/filterable if needed
+1. Upload new evidence with a title
+2. Check that the title appears in the grid card
+3. Open the modal and verify the title appears in the header
+4. Check that existing evidence without titles show "Untitled Evidence"
 
-## Frontend Status
+---
 
-The frontend is already configured to:
-- ✅ Send `title` in FormData via `evidenceApi.upload()`
-- ✅ Display `title` in EvidenceCard component
-- ✅ Show "Untitled Evidence" as fallback if title is missing
-- ✅ Display `uploaded_at` date properly formatted
+## Summary
 
-Once the backend is updated, everything should work seamlessly.
+**Frontend Status:** ✅ Already correctly implemented
+- Title is sent in FormData
+- Title is displayed with fallback in both card and modal
 
+**Backend Status:** ❌ Needs implementation
+1. Add `title` column to database
+2. Update SQLAlchemy model
+3. Accept `title` in upload endpoint
+4. Save `title` to database
+5. Return `title` in list endpoint
 
-
+Once the backend changes are applied, the evidence title should display correctly throughout the application.
