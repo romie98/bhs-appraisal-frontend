@@ -225,7 +225,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       }`}
       style={open ? { pointerEvents: 'none' } : { 
         position: 'relative', 
-        zIndex: 100,
+        zIndex: 10,
         isolation: 'isolate'
       }}
     >
@@ -394,11 +394,11 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       {/* Preview Modal - Rendered via Portal to escape parent constraints */}
       {open && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm overflow-y-auto p-6 evidence-preview-modal"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 evidence-preview-modal backdrop-blur-sm overflow-y-auto"
           onClick={() => setOpen(false)}
         >
           <div
-            className="evidence-preview-modal bg-white rounded-2xl shadow-2xl max-w-[900px] w-full max-h-[80vh] overflow-y-auto overflow-x-auto p-6 relative flex flex-col my-auto"
+            className="evidence-preview-modal bg-white rounded-2xl shadow-xl p-6 z-[10000] relative max-w-[900px] w-full max-h-[80vh] overflow-y-auto overflow-x-auto flex flex-col"
             onClick={(e) => e.stopPropagation()}
             style={{ pointerEvents: 'auto' }}
           >

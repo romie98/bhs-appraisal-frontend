@@ -288,3 +288,5 @@ The frontend is already configured to:
 
 Once the backend is updated, everything should work seamlessly.
 
+
+
