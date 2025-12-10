@@ -225,7 +225,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
       }`}
       style={open ? { pointerEvents: 'none' } : { 
         position: 'relative', 
-        zIndex: 10,
+        zIndex: 1,
         isolation: 'isolate'
       }}
     >

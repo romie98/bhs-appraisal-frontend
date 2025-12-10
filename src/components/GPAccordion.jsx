@@ -75,7 +75,7 @@ function GPAccordion({ subsection, title, description, evidenceItems = [], schem
             // Evidence items - full width vertical stack for large previews
             <div className="space-y-6" style={{ position: 'relative', overflow: 'visible' }}>
               {evidenceItems.map((evidence, index) => (
-                <div key={evidence.id || index} className="relative" style={{ zIndex: 100 + index }}>
+                <div key={evidence.id || index} className="relative" style={{ zIndex: 1 }}>
                   <EvidenceCard 
                     evidence={evidence} 
                     onEdit={onEdit}
@@ -85,7 +85,7 @@ function GPAccordion({ subsection, title, description, evidenceItems = [], schem
               ))}
 
               {/* Floating action button */}
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-end mt-4" style={{ position: 'relative', zIndex: 20 }}>
                 <button
                   onClick={() => setShowUploader(true)}
                   className="w-12 h-12 bg-sky-600 text-white rounded-full shadow-lg hover:bg-sky-700 transition-all duration-300 ease-in-out hover:scale-110 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
