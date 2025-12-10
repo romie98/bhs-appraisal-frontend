@@ -220,23 +220,28 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
   return (
     <div 
       data-evidence-id={evidence.id}
-      className={`evidence-card-container bg-white rounded-2xl shadow-xl border border-gray-200 transition-all duration-300 ease-in-out p-4 ${
-        open ? '' : 'hover:shadow-2xl hover:-translate-y-2'
+      className={`evidence-card-container bg-white rounded-xl shadow-md border border-gray-200 transition-all duration-300 ease-in-out overflow-hidden cursor-pointer ${
+        open ? '' : 'hover:shadow-xl hover:-translate-y-1'
       }`}
       style={open ? { pointerEvents: 'none' } : { 
         position: 'relative', 
         zIndex: 1,
         isolation: 'isolate'
       }}
+      onClick={() => {
+        if (evidence.supabase_url && !open) {
+          setOpen(true)
+        }
+      }}
     >
-      {/* Thumbnail/Preview */}
-      <div className="w-full h-40 bg-gray-50 rounded-xl mb-3 overflow-hidden relative">
+      {/* Square Image Thumbnail */}
+      <div className="aspect-square overflow-hidden rounded-t-xl bg-gray-50 relative">
         {evidence.supabase_url ? (
           <>
             <img
               src={cleanSupabaseUrl(evidence.supabase_url)}
               alt={evidence.fileName || evidence.title || 'Evidence preview'}
-              className="w-full h-40 object-cover rounded"
+              className="w-full h-full object-cover"
               onError={(e) => {
                 // Hide image and show icon fallback
                 e.target.style.display = 'none'
@@ -246,150 +251,36 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
                 }
               }}
             />
-            <div className="hidden items-center justify-center w-full h-40 text-gray-400 absolute inset-0">
+            <div className="hidden items-center justify-center w-full h-full text-gray-400 absolute inset-0 bg-gray-50">
               {getFileIcon(evidence.fileName)}
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center w-full h-40 text-gray-400">
+          <div className="flex items-center justify-center w-full h-full text-gray-400 bg-gray-50">
             {getFileIcon(evidence.fileName)}
           </div>
         )}
       </div>
 
-      {/* Title */}
-      <div>
-        <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2 text-sm">
+      {/* Card Content */}
+      <div className="p-3">
+        {/* Title */}
+        <h3 className="font-semibold text-gray-800 mb-2 line-clamp-1 text-sm">
           {evidence.title || 'Untitled Evidence'}
         </h3>
-      </div>
 
-      {/* GP + Subsection Badge */}
-      <div className="mb-3">
-        <span className="text-xs font-semibold rounded-full px-2 py-1 bg-gray-100 text-gray-700">
-          {evidence.gp} — {evidence.subsection}
-        </span>
-      </div>
-
-      {/* Selected Evidence Labels (Chips) */}
-      {evidence.selectedEvidence && evidence.selectedEvidence.length > 0 && (
-        <div className="mb-3">
-          <div className="flex flex-wrap gap-1">
-            {evidence.selectedEvidence.slice(0, 3).map((item, index) => (
-              <span
-                key={index}
-                className="text-xs font-semibold rounded-full px-2 py-1 bg-gray-100 text-gray-700"
-              >
-                {item.length > 20 ? `${item.substring(0, 20)}...` : item}
-              </span>
-            ))}
-            {evidence.selectedEvidence.length > 3 && (
-              <span className="text-xs font-semibold rounded-full px-2 py-1 bg-gray-100 text-gray-700">
-                +{evidence.selectedEvidence.length - 3}
-              </span>
-            )}
-          </div>
+        {/* Upload Date */}
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Calendar className="w-3 h-3" />
+          <span>
+            {evidence.uploaded_at 
+              ? new Date(evidence.uploaded_at).toLocaleDateString()
+              : evidence.dateAdded 
+              ? formatDate(evidence.dateAdded)
+              : 'No date'}
+          </span>
         </div>
-      )}
-
-      {/* Date Added */}
-      <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
-        <Calendar className="w-3 h-3" />
-        <span>
-          {evidence.uploaded_at 
-            ? new Date(evidence.uploaded_at).toLocaleDateString()
-            : evidence.dateAdded 
-            ? formatDate(evidence.dateAdded)
-            : 'No date'}
-        </span>
       </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-        {evidence.supabase_url && (
-          <>
-            <button
-              onClick={() => setOpen(true)}
-              className="bg-sky-600 text-white px-3 py-1 rounded-md text-sm hover:bg-sky-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-            >
-              Preview
-            </button>
-            <button
-              onClick={() => window.open(cleanSupabaseUrl(evidence.supabase_url), "_blank")}
-              className="text-blue-600 underline text-xs hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
-            >
-              View
-            </button>
-          </>
-        )}
-        {evidence.supabase_url && (
-          <a
-            href={cleanSupabaseUrl(evidence.supabase_url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-2 py-1"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Open
-          </a>
-        )}
-        {evidence.supabase_url && (
-          <a
-            href={cleanSupabaseUrl(evidence.supabase_url)}
-            download
-            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
-          >
-            <Download className="w-3 h-3" />
-            Download
-          </a>
-        )}
-        {onEdit && (
-          <button
-            onClick={() => onEdit(evidence)}
-            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
-            aria-label="Edit evidence"
-          >
-            <Edit className="w-3 h-3" />
-            Edit
-          </button>
-        )}
-        {onDelete && (
-          <div className="relative ml-auto">
-            {showDeleteConfirm ? (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleDelete}
-                  className="text-xs text-red-600 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded px-2 py-1"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="text-xs text-gray-600 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded px-2 py-1"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded px-2 py-1"
-                aria-label="Delete evidence"
-              >
-                <Trash2 className="w-3 h-3" />
-                Delete
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Notes Preview */}
-      {evidence.notes && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-600 line-clamp-2">{evidence.notes}</p>
-        </div>
-      )}
 
       {/* Preview Modal - Rendered via Portal to escape parent constraints */}
       {open && createPortal(
@@ -398,7 +289,7 @@ function EvidenceCard({ evidence, onEdit, onDelete }) {
           onClick={() => setOpen(false)}
         >
           <div
-            className="evidence-preview-modal bg-white rounded-2xl shadow-xl p-6 z-[10000] relative max-w-[900px] w-full max-h-[80vh] overflow-y-auto overflow-x-auto flex flex-col"
+            className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative z-[10000] max-h-[80vh] overflow-y-auto overflow-x-auto flex flex-col"
             onClick={(e) => e.stopPropagation()}
             style={{ pointerEvents: 'auto' }}
           >
