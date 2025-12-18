@@ -1,5 +1,18 @@
 // Authentication service
-// Note: Using direct fetch with window.__APP_API_URL__ for auth endpoints
+// Supports both production (window.__APP_API_URL__) and local development (VITE_API_BASE_URL)
+
+// Shared API base URL configuration
+const API_BASE_URL =
+  window.__APP_API_URL__ ||
+  import.meta.env.VITE_API_BASE_URL;
+
+// Validate API base URL is configured
+if (!API_BASE_URL) {
+  throw new Error("API_BASE_URL is not configured. Set window.__APP_API_URL__ or VITE_API_BASE_URL");
+}
+
+// Normalized base URL (remove trailing slash if present)
+const cleanBase = API_BASE_URL.endsWith("/") ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
 
 /**
  * Login with email and password
@@ -14,12 +27,6 @@ export async function login(data) {
   const formData = new URLSearchParams()
   formData.append("username", email) // OAuth2 uses "username" field for email
   formData.append("password", password)
-
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
 
   const response = await fetch(`${cleanBase}/auth/login`, {
     method: "POST",
@@ -44,12 +51,6 @@ export async function login(data) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function loginJson(email, password) {
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-
   const response = await fetch(`${cleanBase}/auth/login-json`, {
     method: "POST",
     headers: {
@@ -74,12 +75,6 @@ export async function loginJson(email, password) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function register(data) {
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-
   const response = await fetch(`${cleanBase}/auth/register`, {
     method: "POST",
     headers: {
@@ -110,12 +105,6 @@ export async function signup(email, password) {
  * @returns {Promise<{access_token: string, token_type: string}>}
  */
 export async function loginWithGoogle(googleToken) {
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-
   const response = await fetch(`${cleanBase}/auth/google`, {
     method: "POST",
     headers: {
@@ -143,12 +132,6 @@ export async function getMe() {
     throw new Error("No authentication token found");
   }
 
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-
   const response = await fetch(`${cleanBase}/auth/me`, {
     method: "GET",
     headers: {
@@ -175,12 +158,6 @@ export async function getMe() {
  * @deprecated Use getMe() instead - token is handled automatically
  */
 export async function getCurrentUser(token) {
-  const apiUrl = window.__APP_API_URL__ || '';
-  if (!apiUrl) {
-    throw new Error("API_BASE_URL is not configured");
-  }
-  const cleanBase = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
-
   const response = await fetch(`${cleanBase}/auth/me`, {
     method: "GET",
     headers: {

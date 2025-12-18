@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import GlobalLayout from './components/GlobalLayout'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 import Home from './pages/Home'
 import GP1 from './pages/GP1'
 import GP2 from './pages/GP2'
@@ -26,6 +27,8 @@ import Portfolio from './pages/Portfolio'
 import LessonPlans from './pages/LessonPlans'
 import LessonPlanUpload from './pages/LessonPlanUpload'
 import LessonPlanDetail from './pages/LessonPlanDetail'
+import AdminDashboard from './pages/AdminDashboard'
+import Account from './pages/Account'
 
 function App() {
   return (
@@ -34,6 +37,9 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      
+      {/* Temporary test route - remove after diagnosis */}
+      <Route path="/__admin_test" element={<div className="p-6 text-2xl font-bold text-green-600">ADMIN ROUTE TEST OK</div>} />
       
       {/* All other pages with GlobalLayout */}
       <Route path="/*" element={
@@ -62,6 +68,10 @@ function App() {
             <Route path="/lesson-plans/upload" element={<ProtectedRoute><LessonPlanUpload /></ProtectedRoute>} />
             <Route path="/lesson-plans/:id" element={<ProtectedRoute><LessonPlanDetail /></ProtectedRoute>} />
             <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+            
+            {/* Admin routes - require ADMIN role */}
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           </Routes>
         </GlobalLayout>
       } />

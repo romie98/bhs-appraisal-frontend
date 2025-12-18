@@ -1,4 +1,4 @@
-import { Menu, LogOut, User } from 'lucide-react'
+import { Menu, LogOut, User, Settings } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -49,6 +49,13 @@ function Header({ onMenuClick, pageTitle }) {
                 )}
                 <span className="hidden sm:inline">{user?.email || 'User'}</span>
               </div>
+              <Link
+                to="/account"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Account</span>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

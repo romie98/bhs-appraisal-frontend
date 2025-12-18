@@ -29,6 +29,7 @@ function GlobalLayout({ children }) {
       '/markbook-analytics': 'Mark Book Analytics',
       '/register-analytics': 'Register Analytics',
       '/classes': 'Class Management',
+      '/account': 'Account',
     }
     // Handle logbook detail pages
     if (location.pathname.startsWith('/logbook/')) {

@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Calendar, Upload, CheckCircle, X, Loader } from 'lucide-react'
 import EvidenceCheckboxList from './EvidenceCheckboxList'
 import { evidenceApi } from '../services/markbookApi'
+import { useAuth } from '../context/AuthContext'
+import { getUserPlan } from '../config/features'
+import { UpgradeBanner } from './UpgradeBanner'
 
 function EvidenceUploader({ schema, onSave }) {
+  const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [gp, setGp] = useState(schema.gp || 'GP 1')
@@ -15,6 +19,8 @@ function EvidenceUploader({ schema, onSave }) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [uploadCount, setUploadCount] = useState(0)
+  const [loadingCount, setLoadingCount] = useState(false)
   
   // Inline validation errors
   const [errors, setErrors] = useState({
@@ -26,7 +32,63 @@ function EvidenceUploader({ schema, onSave }) {
     file: ''
   })
 
+  // Get user's subscription plan
+  const userPlan = getUserPlan(user)
+  const isFreePlan = userPlan === 'free'
+  
+  // Check if upload limit reached for FREE plan
+  const isLimitReached = isFreePlan && uploadCount >= 3
+
   const gpOptions = ['GP 1', 'GP 2', 'GP 3', 'GP 4', 'GP 5', 'GP 6']
+
+  // Fetch upload count for selected GP subsection
+  useEffect(() => {
+    const fetchUploadCount = async () => {
+      // Only fetch if both GP and subsection are selected
+      if (!gp || !subsection.trim()) {
+        setUploadCount(0)
+        return
+      }
+
+      // Only fetch for FREE plan users (optional optimization)
+      if (!isFreePlan) {
+        setUploadCount(0)
+        return
+      }
+
+      setLoadingCount(true)
+      try {
+        const allEvidence = await evidenceApi.list()
+        
+        // Count evidence matching this GP and subsection
+        const gpSection = `${gp} ${subsection}`.trim()
+        const count = allEvidence.filter(item => {
+          // Match by gp_section (format: "GP 1.1") - primary method
+          if (item.gp_section === gpSection) {
+            return true
+          }
+          
+          // Fallback: match by GP and subsection separately
+          const itemGP = (item.gp || '').trim()
+          const itemSubsection = (item.subsection || '').trim()
+          const normalizedGP = gp.trim()
+          const normalizedSubsection = subsection.trim()
+          
+          return itemGP === normalizedGP && itemSubsection === normalizedSubsection
+        }).length
+        
+        setUploadCount(count)
+      } catch (error) {
+        console.error('Error fetching upload count:', error)
+        // On error, don't block upload - backend will enforce
+        setUploadCount(0)
+      } finally {
+        setLoadingCount(false)
+      }
+    }
+
+    fetchUploadCount()
+  }, [gp, subsection, isFreePlan])
 
   const handleFileChange = (e) => {
     setFiles(e.target.files)
@@ -89,6 +151,12 @@ function EvidenceUploader({ schema, onSave }) {
     e.preventDefault()
     setUploadError(null)
 
+    // Check FREE plan limit (frontend check - backend will also enforce)
+    if (isLimitReached) {
+      setUploadError('Free plan allows 3 uploads per GP subsection. Upgrade to Premium for unlimited uploads.')
+      return
+    }
+
     // Validate form
     if (!validateForm()) {
       return
@@ -130,6 +198,10 @@ function EvidenceUploader({ schema, onSave }) {
       if (onSave) {
         onSave(result)
       }
+
+      // Note: Upload count will be recalculated when user changes GP/subsection
+      // or when parent refetches evidence list. We don't increment here to avoid
+      // inaccuracies if backend rejects the upload.
 
       // Reset form
       setTitle('')
@@ -300,16 +372,23 @@ function EvidenceUploader({ schema, onSave }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <FileText className="w-4 h-4 inline mr-1" />
             File Upload <span className="text-red-500">*</span>
+            {isFreePlan && gp && subsection.trim() && (
+              <span className="ml-2 text-xs text-gray-500">
+                ({uploadCount}/3 uploads used)
+              </span>
+            )}
           </label>
           
           <div className="space-y-3">
             <div>
               <label
                 htmlFor={`file-input-${schema.id}`}
-                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out cursor-pointer font-medium text-sm w-fit ${
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out font-medium text-sm w-fit ${
                   errors.file
                     ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                    : isLimitReached
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-sky-600 text-white hover:bg-sky-700 cursor-pointer'
                 }`}
               >
                 <Upload className="w-4 h-4" />
@@ -322,6 +401,7 @@ function EvidenceUploader({ schema, onSave }) {
                   handleFileChange(e)
                   if (errors.file) setErrors({ ...errors, file: '' })
                 }}
+                disabled={isLimitReached}
                 multiple={schema.allowMultipleFiles}
                 className="hidden"
                 aria-invalid={!!errors.file}
@@ -331,6 +411,9 @@ function EvidenceUploader({ schema, onSave }) {
                 <p id={`file-error-${schema.id}`} className="mt-1 text-sm text-red-600" role="alert">
                   {errors.file}
                 </p>
+              )}
+              {loadingCount && (
+                <p className="mt-1 text-xs text-gray-500">Checking upload limit...</p>
               )}
             </div>
           </div>
@@ -349,6 +432,15 @@ function EvidenceUploader({ schema, onSave }) {
             placeholder="Add any additional notes or reflections..."
           />
         </div>
+
+        {/* FREE Plan Limit Message */}
+        {isFreePlan && gp && subsection.trim() && isLimitReached && (
+          <UpgradeBanner
+            message="Free plan allows 3 uploads per GP subsection. Upgrade to Premium for unlimited uploads."
+            variant="warning"
+            dismissible={false}
+          />
+        )}
 
         {/* Error Message */}
         {uploadError && (
@@ -369,13 +461,18 @@ function EvidenceUploader({ schema, onSave }) {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isUploading}
+          disabled={isUploading || isLimitReached}
           className="w-full px-6 py-3 bg-sky-600 text-white rounded-xl font-medium hover:bg-sky-700 transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
         >
           {isUploading ? (
             <>
               <Loader className="w-5 h-5 animate-spin" />
               Uploading...
+            </>
+          ) : isLimitReached ? (
+            <>
+              <X className="w-5 h-5" />
+              Upload Limit Reached
             </>
           ) : (
             <>
