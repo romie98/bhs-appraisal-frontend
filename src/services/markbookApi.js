@@ -11,16 +11,34 @@ async function apiCall(endpoint, options = {}) {
     // Ensure endpoint is properly formatted
     let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
     
+    // Extract path and query string separately
+    const [path, queryString] = cleanEndpoint.split('?')
+    const hasQuery = queryString !== undefined
+    
     // Based on network logs, backend redirects FROM /classes/ TO /classes (removes trailing slash)
     // So we should NOT add trailing slashes - let fetch follow redirects automatically
     // FastAPI typically expects NO trailing slash for GET requests
-    // EXCEPTION: /evidence/ endpoint requires trailing slash for list operation
+    // EXCEPTIONS: 
+    // - /evidence/ endpoint requires trailing slash for list operation
+    // - /logbook/ endpoint requires trailing slash for ALL requests to avoid redirects that change protocol
     const isGetRequest = !options.method || options.method === 'GET'
+    const isModifyingRequest = options.method === 'POST' || options.method === 'PUT' || options.method === 'DELETE'
     
-    // Remove trailing slashes for all requests EXCEPT /evidence/
-    // Backend requires trailing slash for GET /evidence/ (list evidence)
-    if (cleanEndpoint.endsWith('/') && cleanEndpoint !== '/' && cleanEndpoint !== '/evidence/') {
-      cleanEndpoint = cleanEndpoint.slice(0, -1)
+    // Handle trailing slashes:
+    // - /evidence/ always requires trailing slash
+    // - /logbook/ requires trailing slash for ALL requests to avoid redirects that change protocol
+    // - All other endpoints should NOT have trailing slashes
+    if (path === '/logbook') {
+      // Add trailing slash for all requests to /logbook to avoid redirects
+      cleanEndpoint = `/logbook/${hasQuery ? `?${queryString}` : ''}`
+    } else if (path.endsWith('/') && path !== '/' && path !== '/evidence/') {
+      // Remove trailing slashes for all other endpoints
+      if (path !== '/logbook/') {
+        cleanEndpoint = `${path.slice(0, -1)}${hasQuery ? `?${queryString}` : ''}`
+      } else {
+        // Preserve /logbook/ with query string
+        cleanEndpoint = `/logbook/${hasQuery ? `?${queryString}` : ''}`
+      }
     }
     
     // Build full URL for logging
@@ -396,7 +414,7 @@ export const logbookApi = {
     return apiCall(`/logbook${query ? `?${query}` : ''}`)
   },
   getById: (id) => apiCall(`/logbook/${id}`),
-  create: (data) => apiCall('/logbook', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data) => apiCall('/logbook/', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiCall(`/logbook/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id) => apiCall(`/logbook/${id}`, { method: 'DELETE' }),
 }

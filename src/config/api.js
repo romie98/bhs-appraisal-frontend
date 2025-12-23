@@ -19,6 +19,19 @@ function getApiUrl() {
 
 const apiUrl = getApiUrl();
 
+// Global callback for premium upgrade modal
+// Set by PremiumUpgradeProvider
+let premiumUpgradeCallback = null;
+
+/**
+ * Set the callback function to trigger premium upgrade modal
+ * Called by PremiumUpgradeProvider on mount
+ * @param {Function} callback - Function to call when premium upgrade is needed
+ */
+export function setPremiumUpgradeCallback(callback) {
+  premiumUpgradeCallback = callback;
+}
+
 // Legacy export for compatibility
 export const API_BASE_URL = apiUrl;
 
@@ -52,6 +65,7 @@ export function buildApiUrl(path) {
 /**
  * Make an authenticated API request with automatic token injection
  * Automatically adds Authorization header if token exists
+ * Detects premium subscription required errors and triggers upgrade modal
  * @param {string} path - API endpoint path
  * @param {RequestInit} options - Fetch options
  * @returns {Promise<Response>}
@@ -89,7 +103,31 @@ export async function apiFetch(path, options = {}) {
     headers,
   };
   
-  return fetch(url, fetchOptions);
+  const response = await fetch(url, fetchOptions);
+  
+  // Check for premium subscription required error
+  if (response.status === 403) {
+    try {
+      // Clone response to read body without consuming it
+      const clonedResponse = response.clone();
+      const contentType = clonedResponse.headers.get('content-type') || '';
+      
+      if (contentType.includes('application/json')) {
+        const errorData = await clonedResponse.json();
+        if (errorData.detail === 'Premium subscription required') {
+          // Trigger premium upgrade modal
+          if (premiumUpgradeCallback) {
+            premiumUpgradeCallback();
+          }
+        }
+      }
+    } catch (error) {
+      // If we can't parse the error, continue with normal error handling
+      console.warn('Failed to check premium error:', error);
+    }
+  }
+  
+  return response;
 }
 
 // Export apiUrl for direct use

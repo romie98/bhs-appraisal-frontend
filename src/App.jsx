@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import GlobalLayout from './components/GlobalLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import UpgradePrompt from './components/UpgradePrompt'
 import Home from './pages/Home'
 import GP1 from './pages/GP1'
 import GP2 from './pages/GP2'
@@ -32,7 +33,9 @@ import Account from './pages/Account'
 
 function App() {
   return (
-    <Routes>
+    <>
+      <UpgradePrompt />
+      <Routes>
       {/* Public pages without GlobalLayout */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -76,6 +79,7 @@ function App() {
         </GlobalLayout>
       } />
     </Routes>
+    </>
   )
 }
 console.log("API URL =", window.__APP_API_URL__);

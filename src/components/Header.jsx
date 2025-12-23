@@ -1,9 +1,11 @@
-import { Menu, LogOut, User, Settings } from 'lucide-react'
+import { Menu, LogOut, User, Settings, Sparkles } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useSubscription } from '../hooks/useFeature'
 
 function Header({ onMenuClick, pageTitle }) {
   const { isAuthenticated, user, logout } = useAuth()
+  const { isPremium } = useSubscription()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -34,6 +36,12 @@ function Header({ onMenuClick, pageTitle }) {
         <div className="flex items-center gap-4">
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
+              {isPremium && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-semibold border border-yellow-200">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Premium</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-sm text-gray-700">
                 {user?.profilePicture ? (
                   <img 
