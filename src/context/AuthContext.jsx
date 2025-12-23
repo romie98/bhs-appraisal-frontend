@@ -83,6 +83,7 @@ export function AuthProvider({ children }) {
     register,
     logout,
     isAuthenticated: !!token,
+    refreshUser: fetchUserInfo,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

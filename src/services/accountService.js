@@ -77,20 +77,20 @@ export async function upgradePlan() {
 }
 
 /**
- * Cancel user's Premium plan
+ * Cancel user's Premium subscription
  * @returns {Promise<{
  *   success: boolean,
  *   message?: string
  * }>}
  * @throws {Error} If API request fails
  */
-export async function cancelPlan() {
+export async function cancelSubscription() {
   const token = localStorage.getItem('auth_token')
   if (!token) {
     throw new Error('Authentication token is missing. Please login again.')
   }
 
-  const response = await apiFetch('/account/plan/cancel', {
+  const response = await apiFetch('/subscriptions/cancel', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ export async function cancelPlan() {
     const error = await response.json().catch(() => ({ 
       detail: `HTTP error! status: ${response.status}` 
     }))
-    throw new Error(error.detail || `Failed to cancel plan: ${response.status}`)
+    throw new Error(error.detail || `Failed to cancel subscription: ${response.status}`)
   }
 
   return response.json()
