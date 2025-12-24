@@ -1,9 +1,11 @@
 import { createContext, useState, useEffect, useContext } from "react"
+import { useQueryClient } from '@tanstack/react-query'
 import { getMe, login as loginService, register as registerService } from "../services/authService"
 
 const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
+  const queryClient = useQueryClient()
   const [token, setToken] = useState(() => {
     // Initialize from localStorage using "auth_token" key
     return localStorage.getItem("auth_token")
@@ -49,6 +51,8 @@ export function AuthProvider({ children }) {
       const newToken = response.access_token
       localStorage.setItem("auth_token", newToken)
       setToken(newToken)
+      // Clear React Query cache to prevent showing previous user's data
+      queryClient.clear()
       // Fetch user info after login
       await fetchUserInfo()
     } catch (error) {
@@ -62,6 +66,8 @@ export function AuthProvider({ children }) {
       const newToken = response.access_token
       localStorage.setItem("auth_token", newToken)
       setToken(newToken)
+      // Clear React Query cache to prevent showing previous user's data
+      queryClient.clear()
       // Fetch user info after registration
       await fetchUserInfo()
     } catch (error) {
@@ -70,6 +76,8 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    // Clear React Query cache to prevent showing user's data after logout
+    queryClient.clear()
     localStorage.removeItem("auth_token")
     setToken(null)
     setUser(null)
