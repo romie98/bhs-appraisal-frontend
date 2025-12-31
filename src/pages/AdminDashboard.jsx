@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAdminStats } from '../hooks/useAdminStats'
 import { useAdminActivity } from '../hooks/useAdminActivity'
@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react'
 
 /**
@@ -146,8 +147,19 @@ function AdminDashboard() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">System usage & monitoring</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+              <p className="text-gray-600">System usage & monitoring</p>
+            </div>
+            <Link
+              to="/admin/users"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              User Management
+            </Link>
+          </div>
         </div>
 
         {/* Error Banner (non-blocking) */}

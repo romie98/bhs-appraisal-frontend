@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { cancelSubscription } from '../services/accountService'
+import { cancelSubscription, getBillingPortalUrl } from '../services/accountService'
 import { createCheckoutSession } from '../services/subscriptionService'
 import { 
   CreditCard, 
   User, 
   Shield, 
   Sparkles,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Info
 } from 'lucide-react'
 import { Toast } from '../components/Toast'
 
@@ -20,9 +22,12 @@ function Account() {
   // Get subscription info from user object (trust backend)
   const subscriptionPlan = user?.subscription_plan || 'FREE'
   const subscriptionStatus = user?.subscription_status || 'INACTIVE'
+  const subscriptionSource = user?.subscription_source || null
   
   // User is premium if plan is PREMIUM AND status is ACTIVE
   const isPremium = subscriptionPlan === 'PREMIUM' && subscriptionStatus === 'ACTIVE'
+  const isStripe = subscriptionSource === 'STRIPE'
+  const isAdminGranted = subscriptionSource === 'ADMIN'
   const planName = isPremium ? 'premium' : 'free'
 
   // Format plan name for display
@@ -94,6 +99,23 @@ function Account() {
   // Show cancel confirmation dialog
   const handleCancelClick = () => {
     setShowCancelConfirm(true)
+  }
+
+  // Handle manage billing (Stripe portal)
+  const handleManageBilling = async () => {
+    setProcessing(true)
+    try {
+      const { portal_url } = await getBillingPortalUrl()
+      window.open(portal_url, '_blank')
+    } catch (error) {
+      setToast({
+        show: true,
+        message: error.message || 'Failed to open billing portal',
+        type: 'error'
+      })
+    } finally {
+      setProcessing(false)
+    }
   }
 
   return (
@@ -178,10 +200,14 @@ function Account() {
                 </label>
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex items-center gap-3">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getPlanBadgeColor(planName)}`}>
-                      {formatPlanName(planName)}
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
+                      isStripe ? 'bg-green-100 text-green-800 border-green-200' :
+                      isAdminGranted ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                      getPlanBadgeColor(planName)
+                    }`}>
+                      {isStripe ? '🟢 Premium' : isAdminGranted ? '🟣 Premium (Admin)' : formatPlanName(planName)}
                     </span>
-                    {isPremium && (
+                    {isPremium && !isAdminGranted && (
                       <span className="text-xs text-gray-500 flex items-center gap-1">
                         <Sparkles className="w-3 h-3" />
                         Premium Features
@@ -201,24 +227,90 @@ function Account() {
                 </p>
               </div>
 
+              {/* Subscription Source Info */}
+              {isPremium && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Subscription Source
+                  </label>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {isStripe ? (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Managed by Stripe</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          🟢 Stripe
+                        </span>
+                      </div>
+                    ) : isAdminGranted ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Access granted by administrator</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            🟣 Admin
+                          </span>
+                        </div>
+                        {user?.premium_expires_at && (
+                          <p className="text-xs text-gray-500">
+                            Expires: {new Date(user.premium_expires_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
               {/* Buttons */}
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 space-y-3">
                 {isPremium ? (
-                  <button
-                    onClick={handleCancelClick}
-                    disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Processing...
-                      </>
+                  <>
+                    {/* Stripe users: Show Manage Billing, hide Cancel */}
+                    {isStripe ? (
+                      <button
+                        onClick={handleManageBilling}
+                        disabled={processing}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {processing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="w-4 h-4" />
+                            Manage Billing
+                          </>
+                        )}
+                      </button>
+                    ) : isAdminGranted ? (
+                      /* Admin-granted: Hide upgrade button, show info */
+                      <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-blue-800">
+                          Your premium access was granted by an administrator. Contact support for changes.
+                        </p>
+                      </div>
                     ) : (
-                      'Cancel Subscription'
+                      /* Fallback: Show cancel for other premium users */
+                      <button
+                        onClick={handleCancelClick}
+                        disabled={processing}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {processing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Cancel Subscription'
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </>
                 ) : (
+                  /* Free users: Show upgrade button */
                   <button
                     onClick={handleUpgrade}
                     disabled={processing}
@@ -293,6 +385,8 @@ function Account() {
 }
 
 export default Account
+
+
 
 
 

@@ -29,6 +29,7 @@ import LessonPlans from './pages/LessonPlans'
 import LessonPlanUpload from './pages/LessonPlanUpload'
 import LessonPlanDetail from './pages/LessonPlanDetail'
 import AdminDashboard from './pages/AdminDashboard'
+import UserManagement from './pages/UserManagement'
 import Account from './pages/Account'
 
 function App() {
@@ -75,6 +76,7 @@ function App() {
             
             {/* Admin routes - require ADMIN role */}
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
           </Routes>
         </GlobalLayout>
       } />
