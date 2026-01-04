@@ -30,6 +30,7 @@ import LessonPlanUpload from './pages/LessonPlanUpload'
 import LessonPlanDetail from './pages/LessonPlanDetail'
 import AdminDashboard from './pages/AdminDashboard'
 import UserManagement from './pages/UserManagement'
+import HomeroomRegister from './pages/HomeroomRegister'
 import Account from './pages/Account'
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
             <Route path="/upload-evidence" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
             <Route path="/markbook" element={<ProtectedRoute><MarkBook /></ProtectedRoute>} />
             <Route path="/attendance-register" element={<ProtectedRoute><AttendanceRegister /></ProtectedRoute>} />
+            <Route path="/homeroom-register" element={<ProtectedRoute><HomeroomRegister /></ProtectedRoute>} />
             <Route path="/markbook-analytics" element={<ProtectedRoute><MarkBookAnalytics /></ProtectedRoute>} />
             <Route path="/register-analytics" element={<ProtectedRoute><RegisterAnalytics /></ProtectedRoute>} />
             <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
