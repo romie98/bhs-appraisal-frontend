@@ -379,8 +379,11 @@ export const classesApi = {
     if (!classId) {
       throw new Error('Class ID is required')
     }
-    if (!data || !Array.isArray(data)) {
-      throw new Error('Data must be an array')
+    if (!data || typeof data !== 'object') {
+      throw new Error('Data must be an object')
+    }
+    if (!data.students || !Array.isArray(data.students)) {
+      throw new Error('Data.students must be an array')
     }
     return apiCall(`/classes/${classId}/students/bulk`, {
       method: 'POST',

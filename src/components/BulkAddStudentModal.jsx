@@ -13,6 +13,10 @@ function BulkAddStudentModal({ classId, defaultGrade, onClose, onSuccess }) {
     onSuccess: () => {
       onSuccess()
     },
+    onError: (error) => {
+      console.error('Bulk add students error:', error)
+      alert(error.message || 'Failed to add students. Please try again.')
+    },
   })
 
   const handleSubmit = (e) => {
