@@ -17,6 +17,7 @@ function getApiUrl() {
   return url;
 }
 
+
 const apiUrl = getApiUrl();
 
 // Global callback for premium upgrade modal
