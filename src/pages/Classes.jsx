@@ -8,7 +8,9 @@ import {
   FileText,
   Calendar,
   X,
-  ArrowUpDown
+  ArrowUpDown,
+  Edit,
+  Home
 } from 'lucide-react'
 import { classesApi } from '../services/markbookApi'
 import ClassCreateModal from '../components/ClassCreateModal'
@@ -17,6 +19,7 @@ import ClassRoster from '../components/ClassRoster'
 function Classes() {
   const [selectedClass, setSelectedClass] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingClass, setEditingClass] = useState(null)
   const [sortBy, setSortBy] = useState('name-asc')
   const queryClient = useQueryClient()
 
@@ -167,22 +170,42 @@ function Classes() {
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-800 mb-1">{cls.name}</h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold text-gray-800">{cls.name}</h3>
+                  {cls.is_homeroom && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs font-medium border border-purple-200">
+                      <Home className="w-3 h-3" />
+                      Homeroom
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   {cls.academic_year}
                 </p>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDeleteClass(cls.id, cls.name)
-                }}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Delete class"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditingClass(cls)
+                  }}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit class"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteClass(cls.id, cls.name)
+                  }}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete class"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Users className="w-4 h-4" />
@@ -225,6 +248,33 @@ function Classes() {
             setShowCreateModal(false)
             setSelectedClass(newClass)
             queryClient.invalidateQueries({ queryKey: ['classes'] })
+            queryClient.invalidateQueries({ queryKey: ['markbook-classes'] })
+          }}
+        />
+      )}
+
+      {/* Edit Class Modal */}
+      {editingClass && (
+        <ClassCreateModal
+          classData={editingClass}
+          onClose={() => setEditingClass(null)}
+          onSuccess={(updatedClass) => {
+            setEditingClass(null)
+            if (selectedClass?.id === updatedClass.id) {
+              setSelectedClass(updatedClass)
+            }
+            // Invalidate and refetch to ensure fresh data
+            queryClient.invalidateQueries({ queryKey: ['classes'] })
+            queryClient.invalidateQueries({ queryKey: ['markbook-classes'] })
+            // Force refetch immediately
+            queryClient.refetchQueries({ queryKey: ['classes'] })
+            // Trigger storage event to notify other tabs/pages
+            try {
+              localStorage.setItem('classes_updated', Date.now().toString())
+              localStorage.removeItem('classes_updated')
+            } catch (e) {
+              // Ignore storage errors
+            }
           }}
         />
       )}

@@ -49,6 +49,7 @@ async function apiCall(endpoint, options = {}) {
     console.log("CALLING:", fullUrl);
     console.log("METHOD:", options.method || 'GET');
     
+    
     // Check authorization token
     const token = localStorage.getItem('auth_token');
     console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
@@ -339,9 +340,36 @@ export const registerApi = {
   },
 }
 
+// Homeroom Register API
+export const homeroomRegisterApi = {
+  getAll: (classroomId) => {
+    if (!classroomId) {
+      throw new Error('Classroom ID is required')
+    }
+    return apiCall(`/register/homeroom/${classroomId}`)
+  },
+  createOrUpdate: (data) => {
+    if (!data || !data.classroom_id) {
+      throw new Error('Classroom ID is required')
+    }
+    return apiCall('/register/homeroom', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  },
+}
+
 // Classes API
 export const classesApi = {
-  getAll: () => apiCall('/classes'),
+  getAll: (filters = {}) => {
+    // Build query string if filters are provided
+    const queryParams = new URLSearchParams()
+    if (filters.is_homeroom !== undefined) {
+      queryParams.append('is_homeroom', filters.is_homeroom)
+    }
+    const queryString = queryParams.toString()
+    return apiCall(`/classes${queryString ? `?${queryString}` : ''}`)
+  },
   getById: (id) => {
     if (!id) {
       throw new Error('Class ID is required')
@@ -353,6 +381,15 @@ export const classesApi = {
       throw new Error('Class data is required')
     }
     return apiCall('/classes', { method: 'POST', body: JSON.stringify(data) })
+  },
+  update: (id, data) => {
+    if (!id) {
+      throw new Error('Class ID is required')
+    }
+    if (!data) {
+      throw new Error('Class data is required')
+    }
+    return apiCall(`/classes/${id}`, { method: 'PUT', body: JSON.stringify(data) })
   },
   delete: (id) => {
     if (!id) {
