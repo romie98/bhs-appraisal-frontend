@@ -49,6 +49,7 @@ async function apiCall(endpoint, options = {}) {
     console.log("CALLING:", fullUrl);
     console.log("METHOD:", options.method || 'GET');
     
+    
     // Check authorization token
     const token = localStorage.getItem('auth_token');
     console.log("AUTH TOKEN:", token ? `Bearer ${token.substring(0, 20)}...` : 'MISSING');
@@ -360,7 +361,15 @@ export const homeroomRegisterApi = {
 
 // Classes API
 export const classesApi = {
-  getAll: () => apiCall('/classes'),
+  getAll: (filters = {}) => {
+    // Build query string if filters are provided
+    const queryParams = new URLSearchParams()
+    if (filters.is_homeroom !== undefined) {
+      queryParams.append('is_homeroom', filters.is_homeroom)
+    }
+    const queryString = queryParams.toString()
+    return apiCall(`/classes${queryString ? `?${queryString}` : ''}`)
+  },
   getById: (id) => {
     if (!id) {
       throw new Error('Class ID is required')

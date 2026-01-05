@@ -29,10 +29,12 @@ function ClassCreateModal({ onClose, onSuccess, classData = null }) {
       return
     }
     
+<<<<<<< HEAD
+    // Ensure is_homeroom is a proper boolean (not string)
     const data = {
       name: name.trim(),
       academic_year: academicYear,
-      is_homeroom: isHomeroom,
+      is_homeroom: Boolean(isHomeroom), // Explicitly convert to boolean
     }
 
     if (classData) {

@@ -263,8 +263,18 @@ function Classes() {
             if (selectedClass?.id === updatedClass.id) {
               setSelectedClass(updatedClass)
             }
+            // Invalidate and refetch to ensure fresh data
             queryClient.invalidateQueries({ queryKey: ['classes'] })
             queryClient.invalidateQueries({ queryKey: ['markbook-classes'] })
+            // Force refetch immediately
+            queryClient.refetchQueries({ queryKey: ['classes'] })
+            // Trigger storage event to notify other tabs/pages
+            try {
+              localStorage.setItem('classes_updated', Date.now().toString())
+              localStorage.removeItem('classes_updated')
+            } catch (e) {
+              // Ignore storage errors
+            }
           }}
         />
       )}

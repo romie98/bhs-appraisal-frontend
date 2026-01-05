@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { 
   ClipboardCheck, 
   Calendar, 
-  Users,
+  CheckCircle2,
+  XCircle,
   Loader2
 } from 'lucide-react'
 import { classesApi, homeroomRegisterApi } from '../services/markbookApi'
@@ -15,13 +16,48 @@ function HomeroomRegister() {
   const queryClient = useQueryClient()
 
   // Fetch all classes
-  const { data: classes = [], isLoading: classesLoading } = useQuery({
+  const { data: allClasses = [], isLoading: classesLoading, refetch: refetchClasses } = useQuery({
     queryKey: ['classes'],
     queryFn: () => classesApi.getAll(),
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
+  // Refetch classes when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refetchClasses()
+      }
+    }
+    
+    const handleStorageChange = (e) => {
+      if (e.key === 'classes_updated') {
+        refetchClasses()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [refetchClasses])
+
   // Filter to only homeroom classes
-  const homeroomClasses = classes.filter(cls => cls.is_homeroom === true)
+  const homeroomClasses = allClasses.filter(cls => {
+    const isHomeroom = cls.is_homeroom === true || cls.is_homeroom === 'true' || cls.is_homeroom === 1
+    return isHomeroom
+  })
+
+  // Fetch students for selected class
+  const { data: students = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ['class-students', selectedClassId],
+    queryFn: () => classesApi.getStudents(selectedClassId),
+    enabled: !!selectedClassId,
+  })
 
   // Fetch homeroom register records for selected class
   const { data: registerRecords = [], isLoading: recordsLoading } = useQuery({
@@ -33,6 +69,58 @@ function HomeroomRegister() {
   // Find register for selected date
   const currentRegister = registerRecords.find(r => r.date === selectedDate)
 
+  // Track individual student attendance (morning/afternoon present/absent)
+  // Format: { studentId: { morning: 'Present'|'Absent', afternoon: 'Present'|'Absent' } }
+  const [studentAttendance, setStudentAttendance] = useState({})
+
+  // Initialize student attendance from existing register or default to all present
+  useEffect(() => {
+    if (students.length > 0 && selectedDate) {
+      // If we have existing register data, we need to reconstruct individual attendance
+      // For now, initialize all as Present (we'll need backend to support individual records later)
+      const initialAttendance = {}
+      students.forEach(student => {
+        initialAttendance[student.id] = {
+          morning: 'Present',
+          afternoon: 'Present',
+        }
+      })
+      setStudentAttendance(initialAttendance)
+    }
+  }, [students, selectedDate])
+
+  // Calculate totals from individual student attendance
+  const totals = useMemo(() => {
+    let morningBoys = 0
+    let morningGirls = 0
+    let afternoonBoys = 0
+    let afternoonGirls = 0
+
+    students.forEach(student => {
+      const attendance = studentAttendance[student.id] || { morning: 'Present', afternoon: 'Present' }
+      const isBoy = student.gender === 'Male' || student.gender === 'M' || student.gender === 'male'
+      
+      if (attendance.morning === 'Present') {
+        if (isBoy) morningBoys++
+        else morningGirls++
+      }
+      
+      if (attendance.afternoon === 'Present') {
+        if (isBoy) afternoonBoys++
+        else afternoonGirls++
+      }
+    })
+
+    return {
+      morning_boys: morningBoys,
+      morning_girls: morningGirls,
+      morning_total: morningBoys + morningGirls,
+      afternoon_boys: afternoonBoys,
+      afternoon_girls: afternoonGirls,
+      afternoon_total: afternoonBoys + afternoonGirls,
+    }
+  }, [students, studentAttendance])
+
   // Create/Update homeroom register mutation
   const saveRegisterMutation = useMutation({
     mutationFn: (data) => homeroomRegisterApi.createOrUpdate(data),
@@ -41,37 +129,13 @@ function HomeroomRegister() {
     },
   })
 
-  const [formData, setFormData] = useState({
-    morning_boys: 0,
-    morning_girls: 0,
-    afternoon_boys: 0,
-    afternoon_girls: 0,
-  })
-
-  // Initialize form data when register or date changes
-  useEffect(() => {
-    if (currentRegister) {
-      setFormData({
-        morning_boys: currentRegister.morning_boys || 0,
-        morning_girls: currentRegister.morning_girls || 0,
-        afternoon_boys: currentRegister.afternoon_boys || 0,
-        afternoon_girls: currentRegister.afternoon_girls || 0,
-      })
-    } else {
-      setFormData({
-        morning_boys: 0,
-        morning_girls: 0,
-        afternoon_boys: 0,
-        afternoon_girls: 0,
-      })
-    }
-  }, [currentRegister, selectedDate])
-
-  const handleInputChange = (field, value) => {
-    const numValue = parseInt(value) || 0
-    setFormData(prev => ({
+  const handleAttendanceClick = (studentId, session, status) => {
+    setStudentAttendance(prev => ({
       ...prev,
-      [field]: numValue
+      [studentId]: {
+        ...prev[studentId],
+        [session]: status,
+      }
     }))
   }
 
@@ -85,10 +149,10 @@ function HomeroomRegister() {
       await saveRegisterMutation.mutateAsync({
         classroom_id: selectedClassId,
         date: selectedDate,
-        morning_boys: formData.morning_boys,
-        morning_girls: formData.morning_girls,
-        afternoon_boys: formData.afternoon_boys,
-        afternoon_girls: formData.afternoon_girls,
+        morning_boys: totals.morning_boys,
+        morning_girls: totals.morning_girls,
+        afternoon_boys: totals.afternoon_boys,
+        afternoon_girls: totals.afternoon_girls,
       })
     } catch (error) {
       console.error('Failed to save homeroom register:', error)
@@ -96,9 +160,16 @@ function HomeroomRegister() {
     }
   }
 
-  // Calculate totals
-  const morningTotal = formData.morning_boys + formData.morning_girls
-  const afternoonTotal = formData.afternoon_boys + formData.afternoon_girls
+  const handleMarkAllPresent = () => {
+    const newAttendance = {}
+    students.forEach(student => {
+      newAttendance[student.id] = {
+        morning: 'Present',
+        afternoon: 'Present',
+      }
+    })
+    setStudentAttendance(newAttendance)
+  }
 
   if (classesLoading) {
     return (
@@ -215,26 +286,7 @@ function HomeroomRegister() {
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value)
-                  // Reset form when date changes
-                  const newRegister = registerRecords.find(r => r.date === e.target.value)
-                  if (newRegister) {
-                    setFormData({
-                      morning_boys: newRegister.morning_boys || 0,
-                      morning_girls: newRegister.morning_girls || 0,
-                      afternoon_boys: newRegister.afternoon_boys || 0,
-                      afternoon_girls: newRegister.afternoon_girls || 0,
-                    })
-                  } else {
-                    setFormData({
-                      morning_boys: 0,
-                      morning_girls: 0,
-                      afternoon_boys: 0,
-                      afternoon_girls: 0,
-                    })
-                  }
-                }}
+                onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
@@ -242,131 +294,200 @@ function HomeroomRegister() {
         </div>
       </div>
 
-      {/* Register Form */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-        <div className="p-6">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Date: {new Date(selectedDate).toLocaleDateString('en-US', { 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Morning Summary */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">🌅</span>
+            Morning
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-700">{totals.morning_boys}</div>
+              <div className="text-sm text-gray-600">👦 Boys</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-700">{totals.morning_girls}</div>
+              <div className="text-sm text-gray-600">👧 Girls</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-800">{totals.morning_total}</div>
+              <div className="text-sm text-gray-600">Total</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Afternoon Summary */}
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">🌇</span>
+            Afternoon
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-orange-700">{totals.afternoon_boys}</div>
+              <div className="text-sm text-gray-600">👦 Boys</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-orange-700">{totals.afternoon_girls}</div>
+              <div className="text-sm text-gray-600">👧 Girls</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-orange-800">{totals.afternoon_total}</div>
+              <div className="text-sm text-gray-600">Total</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Student Attendance Table */}
+      {studentsLoading ? (
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
+          <div className="text-center">Loading students...</div>
+        </div>
+      ) : students.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
+          <div className="text-center text-gray-500">
+            No students in this class. Please add students first.
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Student Attendance - {new Date(selectedDate).toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
               })}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Morning Section */}
-            <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-2xl">🌅</span>
-                Morning
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    👦 Boys
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.morning_boys}
-                    onChange={(e) => handleInputChange('morning_boys', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    👧 Girls
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.morning_girls}
-                    onChange={(e) => handleInputChange('morning_girls', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-blue-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Total:</span>
-                    <span className="text-2xl font-bold text-blue-700">{morningTotal}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Afternoon Section */}
-            <div className="p-6 bg-orange-50 border border-orange-200 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-2xl">🌇</span>
-                Afternoon
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    👦 Boys
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.afternoon_boys}
-                    onChange={(e) => handleInputChange('afternoon_boys', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    👧 Girls
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.afternoon_girls}
-                    onChange={(e) => handleInputChange('afternoon_girls', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-orange-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Total:</span>
-                    <span className="text-2xl font-bold text-orange-700">{afternoonTotal}</span>
-                  </div>
-                </div>
-              </div>
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={handleMarkAllPresent}
+                className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+              >
+                Mark All Present
+              </button>
             </div>
           </div>
-
-          {/* Save Button */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <button
-              onClick={handleSave}
-              disabled={saveRegisterMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saveRegisterMutation.isPending ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Register'
-              )}
-            </button>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    <div className="flex items-center justify-center gap-2">
+                      <span>🌅</span>
+                      <span>Morning</span>
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    <div className="flex items-center justify-center gap-2">
+                      <span>🌇</span>
+                      <span>Afternoon</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {students.map((student) => {
+                  const attendance = studentAttendance[student.id] || { morning: 'Present', afternoon: 'Present' }
+                  const isBoy = student.gender === 'Male' || student.gender === 'M' || student.gender === 'male'
+                  
+                  return (
+                    <tr key={student.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2">
+                          <span>{isBoy ? '👦' : '👧'}</span>
+                          <span className="font-medium text-gray-900">
+                            {student.first_name} {student.last_name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleAttendanceClick(student.id, 'morning', 'Present')}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                              attendance.morning === 'Present'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-600 hover:bg-green-100'
+                            }`}
+                            title="Mark Present"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAttendanceClick(student.id, 'morning', 'Absent')}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                              attendance.morning === 'Absent'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-200 text-gray-600 hover:bg-red-100'
+                            }`}
+                            title="Mark Absent"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleAttendanceClick(student.id, 'afternoon', 'Present')}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                              attendance.afternoon === 'Present'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-600 hover:bg-green-100'
+                            }`}
+                            title="Mark Present"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAttendanceClick(student.id, 'afternoon', 'Absent')}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                              attendance.afternoon === 'Absent'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-200 text-gray-600 hover:bg-red-100'
+                            }`}
+                            title="Mark Absent"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
+
+      {/* Save Button */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+        <button
+          onClick={handleSave}
+          disabled={saveRegisterMutation.isPending || studentsLoading}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saveRegisterMutation.isPending ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Register'
+          )}
+        </button>
       </div>
 
       {/* Recent Records */}
       {registerRecords.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Recent Records</h3>
           </div>
@@ -384,15 +505,7 @@ function HomeroomRegister() {
                   <tr 
                     key={record.id} 
                     className={`hover:bg-gray-50 cursor-pointer ${record.date === selectedDate ? 'bg-blue-50' : ''}`}
-                    onClick={() => {
-                      setSelectedDate(record.date)
-                      setFormData({
-                        morning_boys: record.morning_boys || 0,
-                        morning_girls: record.morning_girls || 0,
-                        afternoon_boys: record.afternoon_boys || 0,
-                        afternoon_girls: record.afternoon_girls || 0,
-                      })
-                    }}
+                    onClick={() => setSelectedDate(record.date)}
                   >
                     <td className="px-6 py-3 text-sm font-medium text-gray-900">
                       {new Date(record.date).toLocaleDateString('en-US', {
