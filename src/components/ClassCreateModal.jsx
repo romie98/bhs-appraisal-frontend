@@ -29,7 +29,6 @@ function ClassCreateModal({ onClose, onSuccess, classData = null }) {
       return
     }
     
-<<<<<<< HEAD
     // Ensure is_homeroom is a proper boolean (not string)
     const data = {
       name: name.trim(),
