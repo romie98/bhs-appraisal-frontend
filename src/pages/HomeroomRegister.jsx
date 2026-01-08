@@ -60,13 +60,29 @@ function HomeroomRegister() {
   })
 
   // Fetch homeroom register records for selected class
+  // Query key MUST match exactly: ["homeroomRegister", classId] for consistent cache invalidation
+  // UUID comparison: classId is a UUID string from the backend - must match exactly, never use loose comparison
   const { data: registerRecords = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ['homeroom-register', selectedClassId],
-    queryFn: () => homeroomRegisterApi.getAll(selectedClassId),
+    queryKey: ['homeroomRegister', selectedClassId],
+    queryFn: async () => {
+      // Dev-only debug logging: log classId used in GET request
+      if (import.meta.env.DEV) {
+        console.log('[HomeroomRegister] GET request - classId:', selectedClassId)
+      }
+      const result = await homeroomRegisterApi.getAll(selectedClassId)
+      // Dev-only debug logging: log response length after GET
+      if (import.meta.env.DEV) {
+        console.log('[HomeroomRegister] GET response - records count:', Array.isArray(result) ? result.length : 'not an array')
+      }
+      // Always return an array, never assume data exists
+      return Array.isArray(result) ? result : []
+    },
     enabled: !!selectedClassId,
   })
 
   // Find register for selected date
+  // Date filtering: Must match exactly (YYYY-MM-DD format) - backend returns date as string, not Date object
+  // This is NOT implicit - we explicitly filter by date string comparison
   const currentRegister = registerRecords.find(r => r.date === selectedDate)
 
   // Track individual student attendance (morning/afternoon present/absent)
@@ -122,10 +138,24 @@ function HomeroomRegister() {
   }, [students, studentAttendance])
 
   // Create/Update homeroom register mutation
+  // POST success MUST invalidate EXACTLY the same query key used in GET: ["homeroomRegister", classId]
+  // This ensures React Query refetches fresh data after save, preventing stale cache issues
   const saveRegisterMutation = useMutation({
-    mutationFn: (data) => homeroomRegisterApi.createOrUpdate(data),
+    mutationFn: async (data) => {
+      // Dev-only debug logging: log classId used in POST request
+      if (import.meta.env.DEV) {
+        console.log('[HomeroomRegister] POST request - classroom_id:', data.classroom_id, 'date:', data.date)
+      }
+      const result = await homeroomRegisterApi.createOrUpdate(data)
+      if (import.meta.env.DEV) {
+        console.log('[HomeroomRegister] POST response received')
+      }
+      return result
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['homeroom-register', selectedClassId] })
+      // Invalidate EXACTLY the query key used in GET to force refetch
+      // UUID comparison: selectedClassId must match exactly - React Query uses Object.is() for key comparison
+      queryClient.invalidateQueries({ queryKey: ['homeroomRegister', selectedClassId] })
     },
   })
 
@@ -219,7 +249,9 @@ function HomeroomRegister() {
                 const classId = e.target.value || null
                 setSelectedClassId(classId)
                 if (classId) {
-                  queryClient.invalidateQueries({ queryKey: ['homeroom-register', classId] })
+                  // Invalidate cache when class changes to ensure fresh data
+                  // Query key MUST match exactly: ["homeroomRegister", classId]
+                  queryClient.invalidateQueries({ queryKey: ['homeroomRegister', classId] })
                 }
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
@@ -274,7 +306,9 @@ function HomeroomRegister() {
                 const classId = e.target.value || null
                 setSelectedClassId(classId)
                 if (classId) {
-                  queryClient.invalidateQueries({ queryKey: ['homeroom-register', classId] })
+                  // Invalidate cache when class changes to ensure fresh data
+                  // Query key MUST match exactly: ["homeroomRegister", classId]
+                  queryClient.invalidateQueries({ queryKey: ['homeroomRegister', classId] })
                 }
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
@@ -497,7 +531,14 @@ function HomeroomRegister() {
       </div>
 
       {/* Recent Records */}
-      {registerRecords.length > 0 && (
+      {/* Handle empty array gracefully - show message if no register entries exist yet */}
+      {registerRecords.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6 p-8">
+          <div className="text-center text-gray-500">
+            No register entries yet for this class. Save attendance data to see it here.
+          </div>
+        </div>
+      ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Recent Records</h3>
@@ -543,3 +584,4 @@ function HomeroomRegister() {
 }
 
 export default HomeroomRegister
+

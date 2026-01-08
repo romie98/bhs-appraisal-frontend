@@ -341,17 +341,25 @@ export const registerApi = {
 }
 
 // Homeroom Register API
+// Homeroom Register API
+// UUID handling: classroom_id is a UUID from PostgreSQL - must be passed as string to backend
+// Backend expects UUID in URL path and request body - never convert to number or use loose comparison
 export const homeroomRegisterApi = {
   getAll: (classroomId) => {
     if (!classroomId) {
       throw new Error('Classroom ID is required')
     }
+    // UUID validation: ensure classroomId is a valid UUID string (backend will validate format)
+    // Pass UUID as-is in URL path - backend handles UUID parsing
     return apiCall(`/register/homeroom/${classroomId}`)
   },
   createOrUpdate: (data) => {
     if (!data || !data.classroom_id) {
       throw new Error('Classroom ID is required')
     }
+    // UUID handling: data.classroom_id must be UUID string matching backend UUID type
+    // Date handling: data.date must be YYYY-MM-DD format string (not Date object)
+    // Backend expects exact format - no implicit conversion
     return apiCall('/register/homeroom', {
       method: 'POST',
       body: JSON.stringify(data)
